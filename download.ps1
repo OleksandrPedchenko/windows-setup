@@ -38,6 +38,42 @@ function Get-WsTag {
     finally { $hmac.Dispose() }
 }
 
+function Save-WsDownload {
+    param([string]$Url, [string]$Path, [string]$Name)
+    $response = [System.Net.WebRequest]::Create($Url).GetResponse()
+    $inputStream = $null
+    $outputStream = $null
+    $timer = [System.Diagnostics.Stopwatch]::StartNew()
+    $bytes = [long]0
+    $lastBytes = [long]0
+    $lastSeconds = 0.0
+    try {
+        $inputStream = $response.GetResponseStream()
+        $outputStream = [System.IO.File]::Create($Path)
+        $buffer = New-Object byte[] 65536
+        while (($count = $inputStream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+            $outputStream.Write($buffer, 0, $count)
+            $bytes += $count
+            if ($timer.Elapsed.TotalSeconds - $lastSeconds -ge 1) {
+                $seconds = $timer.Elapsed.TotalSeconds
+                $speed = ($bytes - $lastBytes) / ($seconds - $lastSeconds) / 1MB
+                $percent = 0
+                if ($response.ContentLength -gt 0) {
+                    $percent = [int][math]::Min(99, 100 * $bytes / $response.ContentLength)
+                }
+                Write-Progress -Activity "Downloading $Name" -Status ("{0:N2} MiB/s; {1:N1} MiB received" -f $speed, ($bytes / 1MB)) -PercentComplete $percent
+                $lastBytes = $bytes
+                $lastSeconds = $seconds
+            }
+        }
+    } finally {
+        if ($outputStream) { $outputStream.Dispose() }
+        if ($inputStream) { $inputStream.Dispose() }
+        $response.Dispose()
+        Write-Progress -Activity "Downloading $Name" -Completed
+    }
+}
+
 try {
     if ($EncryptConfig) {
         if (-not $EncryptedConfigPath -or $ConfigPath -match '^https?://') {
@@ -125,11 +161,13 @@ try {
 
 $results = @()
 foreach ($package in $config.packages) {
+    $downloadTimer = $null
     $result = [pscustomobject]@{
         Package = $package.name
         Version = '-'
         Filename = '-'
         Status = 'Failed'
+        Speed = '-'
     }
     try {
         if (-not $package.name) {
@@ -165,8 +203,10 @@ foreach ($package in $config.packages) {
                 }
 
                 Write-Host "Downloading $($package.name) $version ($Architecture)..."
-                $output = & winget download --id $package.id --exact --source winget --version $version --architecture $Architecture --download-directory $Destination --skip-dependencies --accept-source-agreements --accept-package-agreements 2>&1 | Out-String
-                if ($LASTEXITCODE -ne 0) { throw "WinGet download failed: $($output.Trim())" }
+                $downloadTimer = [System.Diagnostics.Stopwatch]::StartNew()
+                & winget download --id $package.id --exact --source winget --version $version --architecture $Architecture --download-directory $Destination --skip-dependencies --accept-source-agreements --accept-package-agreements
+                $downloadTimer.Stop()
+                if ($LASTEXITCODE -ne 0) { throw 'WinGet download failed.' }
 
                 $files = @(Get-ChildItem -LiteralPath $Destination -File | Where-Object {
                     $_.Extension -in @('.exe', '.msi', '.msix', '.msixbundle', '.appx', '.appxbundle', '.zip') -and
@@ -196,7 +236,9 @@ foreach ($package in $config.packages) {
             if (-not $CheckOnly) {
                 $partial = Join-Path $Destination "$filename.partial"
                 try {
-                    Invoke-WebRequest -Uri $finalUri.AbsoluteUri -UseBasicParsing -OutFile $partial
+                    $downloadTimer = [System.Diagnostics.Stopwatch]::StartNew()
+                    Save-WsDownload -Url $finalUri.AbsoluteUri -Path $partial -Name $package.name
+                    $downloadTimer.Stop()
                     $actualHash = (Get-FileHash -LiteralPath $partial -Algorithm SHA256).Hash
                     if ($actualHash -ine $sha256) { throw 'uTorrent Classic installer checksum mismatch.' }
                     Move-Item -LiteralPath $partial -Destination (Join-Path $Destination $filename) -Force
@@ -232,7 +274,9 @@ foreach ($package in $config.packages) {
                 $partial = Join-Path $Destination "$filename.partial"
                 try {
                     Write-Host "Downloading $($package.name) from Google Drive..."
-                    Invoke-WebRequest -Uri $url -UseBasicParsing -OutFile $partial
+                    $downloadTimer = [System.Diagnostics.Stopwatch]::StartNew()
+                    Save-WsDownload -Url $url -Path $partial -Name $package.name
+                    $downloadTimer.Stop()
                     $stream = [System.IO.File]::OpenRead($partial)
                     try {
                         $bytes = New-Object byte[] 64
@@ -253,12 +297,17 @@ foreach ($package in $config.packages) {
 
         if ($version) { $result.Version = $version }
         $result.Filename = $files -join ', '
+        if (-not $CheckOnly -and $downloadTimer -and $downloadTimer.Elapsed.TotalSeconds -gt 0) {
+            $size = [long]0
+            foreach ($file in $files) { $size += (Get-Item -LiteralPath (Join-Path $Destination $file)).Length }
+            $result.Speed = '{0:N2} MiB/s' -f ($size / 1MB / $downloadTimer.Elapsed.TotalSeconds)
+        }
         if ($CheckOnly) {
             $result.Status = 'Found'
             Write-Host "Checked $($package.name) $version`: $($result.Filename)"
         } else {
             $result.Status = 'Downloaded'
-            Write-Host "Downloaded $($package.name) $version`: $($result.Filename)"
+            Write-Host "Downloaded $($package.name) $version`: $($result.Filename) ($($result.Speed) average)"
         }
     } catch {
         Write-Warning "$($package.name): $_"

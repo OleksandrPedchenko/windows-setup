@@ -69,22 +69,21 @@ try {
         if ($_.Exception.Message -notlike '*Incorrect passphrase or modified encrypted configuration*') { throw }
     }
 
-    & (Join-Path $root 'download.ps1') -ConfigPath $publicPath -EncryptedConfigPath $encryptedPath -Destination (Join-Path $work 'output')
-    if (-not (Test-Path -LiteralPath (Join-Path $work 'output/Example.iso'))) { throw 'Decrypted config was not used.' }
-    if (-not (Test-Path -LiteralPath (Join-Path $work 'output/Public-2.0.exe'))) { throw 'Public config was not included.' }
-    & (Join-Path $root 'download.ps1') -ConfigPath $publicPath -EncryptedConfigPath 'https://example.test/packages.encrypted.json' -Destination (Join-Path $work 'remote-output')
-    if (-not (Test-Path -LiteralPath (Join-Path $work 'remote-output/Example.iso'))) { throw 'Remote encrypted config was not used.' }
+    $localPreview = & (Join-Path $root 'download.ps1') -ConfigPath $publicPath -EncryptedConfigPath $encryptedPath -CheckOnly 6>&1 | Out-String
+    if ($localPreview -notmatch 'Example ISO' -or $localPreview -notmatch 'Public app') { throw 'Decrypted config was not combined with public config.' }
+    $remotePreview = & (Join-Path $root 'download.ps1') -ConfigPath $publicPath -EncryptedConfigPath 'https://example.test/packages.encrypted.json' -CheckOnly 6>&1 | Out-String
+    if ($remotePreview -notmatch 'Example ISO') { throw 'Remote encrypted config was not used.' }
 
     Copy-Item -LiteralPath (Join-Path $root 'download.ps1') -Destination (Join-Path $work 'download.ps1')
     Copy-Item -LiteralPath $publicPath -Destination (Join-Path $work 'packages.json')
     Copy-Item -LiteralPath $encryptedPath -Destination (Join-Path $work 'packages.encrypted.json')
-    & (Join-Path $work 'download.ps1') -Destination (Join-Path $work 'auto-output')
-    if (-not (Test-Path -LiteralPath (Join-Path $work 'auto-output/Example.iso'))) { throw 'Nearby encrypted config was not included.' }
+    $autoPreview = & (Join-Path $work 'download.ps1') -CheckOnly 6>&1 | Out-String
+    if ($autoPreview -notmatch 'Example ISO') { throw 'Nearby encrypted config was not included.' }
 
     $global:skipPrivate = $true
     $global:driveRequests = 0
-    & (Join-Path $work 'download.ps1') -Destination (Join-Path $work 'public-only')
-    if (-not (Test-Path -LiteralPath (Join-Path $work 'public-only/Public-2.0.exe'))) { throw 'Public package was skipped.' }
+    $publicOnly = & (Join-Path $work 'download.ps1') -CheckOnly 6>&1 | Out-String
+    if ($publicOnly -notmatch 'Public app' -or $publicOnly -match 'Example ISO') { throw 'Skipping the passphrase included a private package.' }
     if ($global:driveRequests -ne 0) { throw 'Drive was downloaded after skipping the passphrase.' }
 
     $global:skipPrivate = $false

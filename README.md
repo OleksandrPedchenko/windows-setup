@@ -18,7 +18,9 @@ powershell.exe -NoProfile -File .\download.ps1 -Destination 'C:\Installers' -Arc
 powershell.exe -NoProfile -File .\download.ps1 -CheckOnly
 ```
 
-The default destination is `downloads` beside the script. The default architecture is `x64`; accepted values are `x86`, `x64`, `arm`, and `arm64`. Use `-ConfigPath` to supply another JSON file. The script prints each successful version and a final table of package names, versions, filenames, and statuses. It continues after individual failures and exits with code 1 if any package fails.
+The default destination is `downloads` beside the script. The default architecture is `x64`; accepted values are `x86`, `x64`, `arm`, and `arm64`. Use `-ConfigPath` to supply another JSON file. The script prints each successful version and a final table of package names, versions, filenames, statuses, and average download speeds. It continues after individual failures and exits with code 1 if any package fails.
+
+Direct downloads (the ISO and uTorrent Classic) show live transfer speed in MiB/s while downloading. WinGet shows its own download progress; the summary calculates average speed from the downloaded installer size and transfer time. Preview mode does not show a speed.
 
 `-CheckOnly` previews the same package selection without creating the destination folder or downloading installers. It reads the latest WinGet version and installer metadata, resolves the uTorrent Classic release version and hash, and checks the Drive file's response headers, filename, and size. WinGet filenames shown in this preview are inferred from installer URLs and may differ from the saved names. Drive versions come from the encrypted configuration. Availability and checksum verification are confirmed only during the actual download.
 
@@ -97,6 +99,6 @@ Use `-CheckOnly` together with the passphrase prompt to preview both public and 
 
 ## Validation and limits
 
-Run `pwsh -NoProfile -File ./validate.ps1` on macOS, Linux, or Windows to parse the PowerShell scripts with the AST parser and validate the JSON structure. Run the scripts under `tests/` for local stub tests. GitHub Actions runs all checks on pushes and pull requests. These checks do **not** verify real WinGet behavior, a complete Google Drive ISO download, installer availability, checksum validation, or Windows PowerShell 5.1 execution. Those require testing on Windows.
+Run `pwsh -NoProfile -File ./validate.ps1` on macOS, Linux, or Windows to parse the PowerShell scripts with the AST parser and validate the JSON structure. Run the scripts under `tests/` for local tests; the Google Drive smoke test uses Python's standard library to serve a small local fixture. GitHub Actions runs all checks on pushes and pull requests. These checks do **not** verify real WinGet behavior, a complete Google Drive ISO download, installer availability, checksum validation, or Windows PowerShell 5.1 execution. Those require testing on Windows.
 
 WinGet must support `download`; older installations may need an App Installer update. Some packages may not provide an installer for a requested architecture or may fail because of network, publisher, or source conditions. WinGet output is parsed to report a version, so the version field depends on `winget show` presenting its `Version:` field in English. Existing installers in the destination may be replaced by WinGet; the summary includes files created or changed by each successful download.
