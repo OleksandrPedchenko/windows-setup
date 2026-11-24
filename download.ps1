@@ -1,14 +1,18 @@
 param(
-    [string]$Destination = (Join-Path $PSScriptRoot 'downloads'),
+    [string]$Destination = (Join-Path $(if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }) 'downloads'),
     [ValidateSet('x86', 'x64', 'arm', 'arm64')]
     [string]$Architecture = 'x64',
-    [string]$ConfigPath = (Join-Path $PSScriptRoot 'packages.json')
+    [string]$ConfigPath = $(if ($PSScriptRoot) { Join-Path $PSScriptRoot 'packages.json' } else { 'https://raw.githubusercontent.com/OleksandrPedchenko/windows-setup/main/packages.json' })
 )
 
 $ErrorActionPreference = 'Stop'
 
 try {
-    $config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
+    if ($ConfigPath -match '^https?://') {
+        $config = Invoke-RestMethod -Uri $ConfigPath -UseBasicParsing
+    } else {
+        $config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
+    }
     if (-not $config.packages -or @($config.packages).Count -eq 0) {
         throw 'packages.json must contain a non-empty packages array.'
     }
@@ -21,10 +25,7 @@ try {
     }
     $Destination = [System.IO.Path]::GetFullPath($Destination)
     $null = New-Item -ItemType Directory -Path $Destination -Force
-} catch {
-    Write-Error $_
-    exit 1
-}
+} catch { throw }
 
 $results = @()
 foreach ($package in $config.packages) {
@@ -72,4 +73,6 @@ foreach ($package in $config.packages) {
 
 Write-Host "`nSummary"
 $results | Format-Table -AutoSize | Out-Host
-if (@($results | Where-Object Status -eq 'Failed').Count -gt 0) { exit 1 }
+if (@($results | Where-Object Status -eq 'Failed').Count -gt 0) {
+    throw 'One or more package downloads failed.'
+}

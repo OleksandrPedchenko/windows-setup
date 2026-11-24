@@ -19,18 +19,19 @@ powershell.exe -NoProfile -File .\download.ps1 -Destination 'C:\Installers' -Arc
 
 The default destination is `downloads` beside the script. The default architecture is `x64`; accepted values are `x86`, `x64`, `arm`, and `arm64`. Use `-ConfigPath` to supply another JSON file. The script prints each successful version and a final table of package names, versions, filenames, and statuses. It continues after individual failures and exits with code 1 if any package fails.
 
-To run the public repository version without cloning it, download the script and its configuration to a temporary folder, then execute it:
+To run directly from the public repository in a Windows PowerShell console, without cloning or saving the files yourself:
 
 ```powershell
-$base = 'https://raw.githubusercontent.com/OleksandrPedchenko/windows-setup/main'
-$dir = Join-Path $env:TEMP 'windows-setup'
-New-Item -ItemType Directory -Path $dir -Force | Out-Null
-Invoke-WebRequest "$base/download.ps1" -UseBasicParsing -OutFile (Join-Path $dir 'download.ps1')
-Invoke-WebRequest "$base/packages.json" -UseBasicParsing -OutFile (Join-Path $dir 'packages.json')
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $dir 'download.ps1') -Destination 'C:\Installers'
+irm 'https://raw.githubusercontent.com/OleksandrPedchenko/windows-setup/main/download.ps1' -UseBasicParsing | iex
 ```
 
-Review the downloaded script and configuration before executing them. To preserve a specific revision, replace `main` in `$base` with a commit hash.
+This fetches `packages.json` from the same repository. Installers go to `downloads` in the current directory. To pass parameters, invoke the fetched text as a script block:
+
+```powershell
+& ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/OleksandrPedchenko/windows-setup/main/download.ps1' -UseBasicParsing))) -Destination 'C:\Installers' -Architecture arm64
+```
+
+Inspect the [script](https://github.com/OleksandrPedchenko/windows-setup/blob/main/download.ps1) before using `iex`: it executes remote code immediately. For a reproducible version, download both files from a specific commit and run the local script.
 
 ## Configuration
 
