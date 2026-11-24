@@ -66,33 +66,57 @@ try {
         return
     }
 
-    if ($EncryptedConfigPath) {
-        if ($EncryptedConfigPath -match '^https?://') {
-            $encrypted = Invoke-RestMethod -Uri $EncryptedConfigPath -UseBasicParsing
-        } else {
-            $encrypted = Get-Content -LiteralPath $EncryptedConfigPath -Raw | ConvertFrom-Json
-        }
-        if ($encrypted.format -ne 'windows-setup-v1' -or -not $encrypted.data -or -not $encrypted.tag) {
-            throw 'Unsupported or incomplete encrypted configuration.'
-        }
-        $salt = [Convert]::FromBase64String($encrypted.salt)
-        $storedTag = [Convert]::FromBase64String($encrypted.tag)
-        if ($salt.Length -ne 16 -or $storedTag.Length -ne 32) { throw 'Invalid encrypted configuration.' }
-        $password = ConvertFrom-WsSecureString (Read-Host 'Config passphrase' -AsSecureString)
-        $keys = Get-WsKeys $password $salt
-        $expectedTag = Get-WsTag $keys.Authentication $encrypted.salt $encrypted.data
-        $difference = 0
-        for ($i = 0; $i -lt 32; $i++) { $difference = $difference -bor ($storedTag[$i] -bxor $expectedTag[$i]) }
-        if ($difference -ne 0) { throw 'Incorrect passphrase or modified encrypted configuration.' }
-        $secureJson = ConvertTo-SecureString $encrypted.data -Key $keys.Encryption
-        $config = ConvertFrom-WsSecureString $secureJson | ConvertFrom-Json
-    } elseif ($ConfigPath -match '^https?://') {
+    if ($ConfigPath -match '^https?://') {
         $config = Invoke-RestMethod -Uri $ConfigPath -UseBasicParsing
     } else {
         $config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
     }
     if (-not $config.packages -or @($config.packages).Count -eq 0) {
         throw 'packages.json must contain a non-empty packages array.'
+    }
+
+    $autoEncrypted = -not $EncryptedConfigPath
+    if ($autoEncrypted) {
+        if ($PSScriptRoot) {
+            $candidate = Join-Path $PSScriptRoot 'packages.encrypted.json'
+            if (Test-Path -LiteralPath $candidate) { $EncryptedConfigPath = $candidate }
+        } else {
+            $EncryptedConfigPath = 'https://raw.githubusercontent.com/OleksandrPedchenko/windows-setup/main/packages.encrypted.json'
+        }
+    }
+    if ($EncryptedConfigPath) {
+        try {
+            if ($EncryptedConfigPath -match '^https?://') {
+                $encrypted = Invoke-RestMethod -Uri $EncryptedConfigPath -UseBasicParsing
+            } else {
+                $encrypted = Get-Content -LiteralPath $EncryptedConfigPath -Raw | ConvertFrom-Json
+            }
+        } catch {
+            if (-not $autoEncrypted -or -not $_.Exception.Response -or [int]$_.Exception.Response.StatusCode -ne 404) { throw }
+        }
+        if ($encrypted) {
+            if ($encrypted.format -ne 'windows-setup-v1' -or -not $encrypted.data -or -not $encrypted.tag) {
+                throw 'Unsupported or incomplete encrypted configuration.'
+            }
+            $passphrase = Read-Host 'Private package passphrase (Enter to skip)' -AsSecureString
+            if ($passphrase.Length -gt 0) {
+                $salt = [Convert]::FromBase64String($encrypted.salt)
+                $storedTag = [Convert]::FromBase64String($encrypted.tag)
+                if ($salt.Length -ne 16 -or $storedTag.Length -ne 32) { throw 'Invalid encrypted configuration.' }
+                $password = ConvertFrom-WsSecureString $passphrase
+                $keys = Get-WsKeys $password $salt
+                $expectedTag = Get-WsTag $keys.Authentication $encrypted.salt $encrypted.data
+                $difference = 0
+                for ($i = 0; $i -lt 32; $i++) { $difference = $difference -bor ($storedTag[$i] -bxor $expectedTag[$i]) }
+                if ($difference -ne 0) { throw 'Incorrect passphrase or modified encrypted configuration.' }
+                $secureJson = ConvertTo-SecureString $encrypted.data -Key $keys.Encryption
+                $privateConfig = ConvertFrom-WsSecureString $secureJson | ConvertFrom-Json
+                if (-not $privateConfig.packages) { throw 'Encrypted configuration has no packages.' }
+                $config.packages = @($config.packages) + @($privateConfig.packages)
+            } else {
+                Write-Host 'Private packages skipped.'
+            }
+        }
     }
     $Destination = [System.IO.Path]::GetFullPath($Destination)
     $null = New-Item -ItemType Directory -Path $Destination -Force

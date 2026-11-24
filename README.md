@@ -25,7 +25,7 @@ To run directly from the public repository in a Windows PowerShell console, with
 irm 'https://raw.githubusercontent.com/OleksandrPedchenko/windows-setup/main/download.ps1' -UseBasicParsing | iex
 ```
 
-This fetches the public `packages.json` from the same repository. Installers go to `downloads` in the current directory. To pass parameters, invoke the fetched text as a script block:
+This fetches the public `packages.json` from the same repository. If `packages.encrypted.json` is published beside it, the script asks for a passphrase: enter it to include private packages, or press Enter to download only the public ones. Installers go to `downloads` in the current directory. To pass parameters, invoke the fetched text as a script block:
 
 ```powershell
 & ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/OleksandrPedchenko/windows-setup/main/download.ps1' -UseBasicParsing))) -Destination 'C:\Installers' -Architecture arm64
@@ -35,12 +35,21 @@ Inspect the [script](https://github.com/OleksandrPedchenko/windows-setup/blob/ma
 
 ## Configuration
 
-Edit `packages.json` to add or remove packages:
+Edit the public `packages.json` to add or remove WinGet packages:
 
 ```json
 {
   "packages": [
-    { "name": "VLC", "source": "winget", "id": "VideoLAN.VLC" },
+    { "name": "VLC", "source": "winget", "id": "VideoLAN.VLC" }
+  ]
+}
+```
+
+Keep the Drive entry in the ignored `packages.local.json`:
+
+```json
+{
+  "packages": [
     { "name": "My ISO", "source": "google-drive", "id": "YOUR_FILE_ID", "filename": "MyFile.iso", "version": "YOUR_VERSION" }
   ]
 }
@@ -48,7 +57,7 @@ Edit `packages.json` to add or remove packages:
 
 `source` identifies the download provider. `winget` and `google-drive` are implemented; direct URLs and GitHub Releases remain future options. WinGet selects the latest version for the requested architecture. The script resolves that version with `winget show`, pins the same version for `winget download`, and leaves WinGet's installer hash verification enabled. It uses `--skip-dependencies` to download only the listed application's installer.
 
-A Google Drive entry points to a **single file ID**, not its parent folder. Keep private links in `packages.local.json`, which is ignored by Git, and run `powershell.exe -NoProfile -File .\download.ps1 -ConfigPath .\packages.local.json`. For remote script execution with private local configuration, pass `-ConfigPath 'C:\path\packages.local.json'` using the script-block form above. The `version` value is supplied by the configuration, not verified against a software publisher. Google Drive downloads do not receive WinGet checksum verification. The script rejects an empty response or an HTML warning page instead of saving it as an ISO. Drive files must remain anonymously downloadable; this script does not sign in to Google.
+A Google Drive entry points to a **single file ID**, not its parent folder. The `version` value is supplied by the configuration, not verified against a software publisher. Google Drive downloads do not receive WinGet checksum verification. The script rejects an empty response or an HTML warning page instead of saving it as an ISO. Drive files must remain anonymously downloadable; this script does not sign in to Google.
 
 ### Password-encrypted configuration
 
@@ -58,13 +67,13 @@ To create a portable encrypted configuration from your ignored local file, run t
 powershell.exe -NoProfile -File .\download.ps1 -EncryptConfig -ConfigPath .\packages.local.json -EncryptedConfigPath .\packages.encrypted.json
 ```
 
-To use the encrypted file, run:
+Put `packages.encrypted.json` beside `download.ps1`, then run the script normally. Enter your passphrase to download the public WinGet packages **and** the private ISO, or press Enter to download only the public packages:
 
 ```powershell
-powershell.exe -NoProfile -File .\download.ps1 -EncryptedConfigPath .\packages.encrypted.json -Destination 'C:\Installers'
+powershell.exe -NoProfile -File .\download.ps1 -Destination 'C:\Installers'
 ```
 
-You can publish `packages.encrypted.json` for use on another computer, or pass its HTTPS URL to `-EncryptedConfigPath` with the script-block invocation above. The passphrase is requested at runtime. Encryption uses PowerShell's AES secure-string format with a random salt, 600,000 PBKDF2 iterations, and an HMAC check for tampering. Use a strong, unique passphrase: anyone with the encrypted file can try guesses offline. This protects the file ID in the configuration; it does not change Google Drive's sharing permissions or invalidate any previously exposed link.
+You can publish `packages.encrypted.json` beside the script for the same choice with the remote one-liner. Use `-EncryptedConfigPath` if the encrypted file is elsewhere. A wrong passphrase stops the run before any download. Encryption uses PowerShell's AES secure-string format with a random salt, 600,000 PBKDF2 iterations, and an HMAC check for tampering. Use a strong, unique passphrase: anyone with the encrypted file can try guesses offline. This protects the file ID in the configuration; it does not change Google Drive's sharing permissions or invalidate any previously exposed link.
 
 ## Validation and limits
 

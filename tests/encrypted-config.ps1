@@ -3,19 +3,34 @@ $root = Split-Path -Parent $PSScriptRoot
 $work = Join-Path ([System.IO.Path]::GetTempPath()) ([guid]::NewGuid().ToString())
 $null = New-Item -ItemType Directory -Path $work
 $plainPath = Join-Path $work 'plain.json'
+$publicPath = Join-Path $work 'public.json'
 $encryptedPath = Join-Path $work 'encrypted.json'
 @{
     packages = @(@{ name = 'Example ISO'; source = 'google-drive'; id = 'private-example-id'; filename = 'Example.iso'; version = '1.2.3' })
 } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $plainPath
+@{
+    packages = @(@{ name = 'Public app'; source = 'winget'; id = 'Example.Public' })
+} | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $publicPath
 
 function Read-Host {
     param([string]$Prompt, [switch]$AsSecureString)
+    if ($global:skipPrivate) { return [System.Security.SecureString]::new() }
     $password = if ($global:wrongPassword) { 'wrong password' } else { 'correct horse battery staple' }
     ConvertTo-SecureString $password -AsPlainText -Force
 }
 function Invoke-WebRequest {
     param([string]$Uri, [string]$OutFile, [switch]$UseBasicParsing)
+    $global:driveRequests++
     [System.IO.File]::WriteAllBytes($OutFile, [byte[]](0, 1, 2, 3))
+}
+function winget {
+    $global:LASTEXITCODE = 0
+    if ($args[0] -eq 'show') { 'Version: 2.0'; return }
+    if ($args[0] -eq 'download' -and $args[1] -eq '--help') { 'download help'; return }
+    if ($args[0] -eq 'download') {
+        $dir = $args[[array]::IndexOf($args, '--download-directory') + 1]
+        Set-Content -LiteralPath (Join-Path $dir 'Public-2.0.exe') -Value 'stub'
+    }
 }
 function Invoke-RestMethod {
     param([string]$Uri, [switch]$UseBasicParsing)
@@ -31,7 +46,7 @@ try {
 
     $global:wrongPassword = $true
     try {
-        & (Join-Path $root 'download.ps1') -EncryptedConfigPath $encryptedPath -Destination (Join-Path $work 'wrong-output')
+        & (Join-Path $root 'download.ps1') -ConfigPath $publicPath -EncryptedConfigPath $encryptedPath -Destination (Join-Path $work 'wrong-output')
         throw 'Wrong password was accepted.'
     } catch {
         if ($_.Exception.Message -notlike '*Incorrect passphrase or modified encrypted configuration*') { throw }
@@ -43,16 +58,29 @@ try {
     $tampered.data = 'x' + $tampered.data.Substring(1)
     $tampered | ConvertTo-Json -Compress | Set-Content -LiteralPath $tamperedPath
     try {
-        & (Join-Path $root 'download.ps1') -EncryptedConfigPath $tamperedPath -Destination (Join-Path $work 'tampered-output')
+        & (Join-Path $root 'download.ps1') -ConfigPath $publicPath -EncryptedConfigPath $tamperedPath -Destination (Join-Path $work 'tampered-output')
         throw 'Modified ciphertext was accepted.'
     } catch {
         if ($_.Exception.Message -notlike '*Incorrect passphrase or modified encrypted configuration*') { throw }
     }
 
-    & (Join-Path $root 'download.ps1') -EncryptedConfigPath $encryptedPath -Destination (Join-Path $work 'output')
+    & (Join-Path $root 'download.ps1') -ConfigPath $publicPath -EncryptedConfigPath $encryptedPath -Destination (Join-Path $work 'output')
     if (-not (Test-Path -LiteralPath (Join-Path $work 'output/Example.iso'))) { throw 'Decrypted config was not used.' }
-    & (Join-Path $root 'download.ps1') -EncryptedConfigPath 'https://example.test/packages.encrypted.json' -Destination (Join-Path $work 'remote-output')
+    if (-not (Test-Path -LiteralPath (Join-Path $work 'output/Public-2.0.exe'))) { throw 'Public config was not included.' }
+    & (Join-Path $root 'download.ps1') -ConfigPath $publicPath -EncryptedConfigPath 'https://example.test/packages.encrypted.json' -Destination (Join-Path $work 'remote-output')
     if (-not (Test-Path -LiteralPath (Join-Path $work 'remote-output/Example.iso'))) { throw 'Remote encrypted config was not used.' }
+
+    Copy-Item -LiteralPath (Join-Path $root 'download.ps1') -Destination (Join-Path $work 'download.ps1')
+    Copy-Item -LiteralPath $publicPath -Destination (Join-Path $work 'packages.json')
+    Copy-Item -LiteralPath $encryptedPath -Destination (Join-Path $work 'packages.encrypted.json')
+    & (Join-Path $work 'download.ps1') -Destination (Join-Path $work 'auto-output')
+    if (-not (Test-Path -LiteralPath (Join-Path $work 'auto-output/Example.iso'))) { throw 'Nearby encrypted config was not included.' }
+
+    $global:skipPrivate = $true
+    $global:driveRequests = 0
+    & (Join-Path $work 'download.ps1') -Destination (Join-Path $work 'public-only')
+    if (-not (Test-Path -LiteralPath (Join-Path $work 'public-only/Public-2.0.exe'))) { throw 'Public package was skipped.' }
+    if ($global:driveRequests -ne 0) { throw 'Drive was downloaded after skipping the passphrase.' }
     Write-Host 'Encrypted configuration smoke test OK'
 } finally {
     Remove-Item -LiteralPath $work -Recurse -Force
