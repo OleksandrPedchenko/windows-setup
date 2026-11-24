@@ -28,11 +28,18 @@ To run directly from the public repository in a Windows PowerShell console, with
 irm 'https://raw.githubusercontent.com/OleksandrPedchenko/windows-setup/main/download.ps1' -UseBasicParsing | iex
 ```
 
-This fetches the public `packages.json` and encrypted `packages.encrypted.json` from the same repository. The script asks for a passphrase: enter it to include the private ISO, or press Enter to download only the public packages. Installers go to `downloads` in the current directory. To pass parameters, invoke the fetched text as a script block:
+This fetches the public `packages.json` and encrypted `packages.encrypted.json` from the same repository. The script asks for a passphrase: enter it to include the private ISO, or press Enter to download only the public packages. Installers go to `downloads` in the current directory.
+
+To pass flags, fetch the same script into a variable and invoke it as a script block. For example, run the first line, then choose **one** of the commands below:
 
 ```powershell
-& ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/OleksandrPedchenko/windows-setup/main/download.ps1' -UseBasicParsing))) -Destination 'C:\Installers' -Architecture arm64
+$setup = irm 'https://raw.githubusercontent.com/OleksandrPedchenko/windows-setup/main/download.ps1' -UseBasicParsing
+& ([scriptblock]::Create($setup)) -CheckOnly
+& ([scriptblock]::Create($setup)) -Destination 'C:\Installers'
+& ([scriptblock]::Create($setup)) -Destination 'C:\Installers' -Architecture arm64 -CheckOnly
 ```
+
+`-CheckOnly` shows the versions and files without downloading. The passphrase prompt appears in both preview and download modes. Plain `iex` runs with default settings; use the script block form for parameters.
 
 Inspect the [script](https://github.com/OleksandrPedchenko/windows-setup/blob/main/download.ps1) before using `iex`: it executes remote code immediately. For a reproducible version, download both files from a specific commit and run the local script.
 
