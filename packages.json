@@ -4,6 +4,8 @@
     { "name": "WinRAR", "source": "winget", "id": "RARLab.WinRAR" },
     { "name": "Telegram Desktop", "source": "winget", "id": "Telegram.TelegramDesktop" },
     { "name": "Viber", "source": "winget", "id": "Rakuten.Viber" },
-    { "name": "VLC", "source": "winget", "id": "VideoLAN.VLC" }
+    { "name": "VLC", "source": "winget", "id": "VideoLAN.VLC" },
+    { "name": "Signal", "source": "winget", "id": "OpenWhisperSystems.Signal" },
+    { "name": "uTorrent Classic", "source": "utorrent-classic", "url": "https://download-new.utorrent.com/endpoint/utorrent/os/windows/track/stable" }
   ]
 }

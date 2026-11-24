@@ -132,8 +132,8 @@ foreach ($package in $config.packages) {
         Status = 'Failed'
     }
     try {
-        if (-not $package.name -or -not $package.id) {
-            throw 'Package needs a name and ID.'
+        if (-not $package.name) {
+            throw 'Package needs a name.'
         }
 
         if ($package.source -eq 'winget') {
@@ -174,6 +174,37 @@ foreach ($package in $config.packages) {
                 } | Select-Object -ExpandProperty Name)
                 if ($files.Count -eq 0) { throw 'WinGet returned success, but no new or changed installer was found.' }
             }
+        } elseif ($package.source -eq 'utorrent-classic') {
+            if ($package.url -ne 'https://download-new.utorrent.com/endpoint/utorrent/os/windows/track/stable') {
+                throw 'Unsupported uTorrent Classic URL.'
+            }
+            $head = Invoke-WebRequest -Uri $package.url -Method Head -UseBasicParsing
+            $finalUri = $head.BaseResponse.ResponseUri
+            if (-not $finalUri) { $finalUri = $head.BaseResponse.RequestMessage.RequestUri }
+            $path = $finalUri.AbsolutePath
+            $match = [regex]::Match($path, '^/v2/utclassic/([0-9.]+)/([0-9]+)/windows-installer/official/([a-fA-F0-9]{64})/utorrent_installer\.exe$')
+            $sha256 = [string](@($head.Headers['x-amz-meta-sha256'])[0])
+            if ($finalUri.Host -ne 'releases.bitmedianetwork.com' -or -not $match.Success -or
+                $sha256 -notmatch '^[a-fA-F0-9]{64}$' -or $sha256 -ine $match.Groups[3].Value -or
+                [long](@($head.Headers['Content-Length'])[0]) -le 0) {
+                throw 'uTorrent Classic did not return expected release metadata.'
+            }
+            $version = "$($match.Groups[1].Value) build $($match.Groups[2].Value)"
+            $filename = "utorrent-$($match.Groups[1].Value)-$($match.Groups[2].Value).exe"
+            Write-Host "Installer URL: $($finalUri.AbsoluteUri)"
+            Write-Host "Publisher SHA256: $sha256"
+            if (-not $CheckOnly) {
+                $partial = Join-Path $Destination "$filename.partial"
+                try {
+                    Invoke-WebRequest -Uri $finalUri.AbsoluteUri -UseBasicParsing -OutFile $partial
+                    $actualHash = (Get-FileHash -LiteralPath $partial -Algorithm SHA256).Hash
+                    if ($actualHash -ine $sha256) { throw 'uTorrent Classic installer checksum mismatch.' }
+                    Move-Item -LiteralPath $partial -Destination (Join-Path $Destination $filename) -Force
+                } finally {
+                    if (Test-Path -LiteralPath $partial) { Remove-Item -LiteralPath $partial -Force }
+                }
+            }
+            $files = @($filename)
         } elseif ($package.source -eq 'google-drive') {
             $filename = [string]$package.filename
             if (-not $package.version -or

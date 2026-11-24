@@ -31,8 +31,14 @@ try {
         throw 'packages must be a non-empty array'
     }
     foreach ($package in $config.packages) {
-        if (-not $package.name -or -not $package.source -or -not $package.id) {
-            throw 'Each package needs name, source, and id'
+        if (-not $package.name -or -not $package.source) {
+            throw 'Each package needs name and source'
+        }
+        if ($package.source -eq 'winget' -and -not $package.id) {
+            throw 'WinGet packages need an id'
+        }
+        if ($package.source -eq 'utorrent-classic' -and -not $package.url) {
+            throw 'uTorrent Classic needs a URL'
         }
         if ($package.source -eq 'google-drive' -and (-not $package.filename -or -not $package.version)) {
             throw 'Google Drive packages need filename and version'

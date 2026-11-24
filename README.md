@@ -1,6 +1,6 @@
 # windows-setup
 
-A small, configuration-driven PowerShell utility that downloads Windows application installers through WinGet and optional ISO files from Google Drive. It does not install applications.
+A small, configuration-driven PowerShell utility that downloads Windows application installers through WinGet, µTorrent Classic from its publisher, and optional ISO files from Google Drive. It does not install applications.
 
 ## Requirements
 
@@ -20,7 +20,7 @@ powershell.exe -NoProfile -File .\download.ps1 -CheckOnly
 
 The default destination is `downloads` beside the script. The default architecture is `x64`; accepted values are `x86`, `x64`, `arm`, and `arm64`. Use `-ConfigPath` to supply another JSON file. The script prints each successful version and a final table of package names, versions, filenames, and statuses. It continues after individual failures and exits with code 1 if any package fails.
 
-`-CheckOnly` previews the same package selection without creating the destination folder or downloading installers. It reads the latest WinGet version and installer metadata, and checks the Drive file's response headers, filename, and size. WinGet filenames shown in this preview are inferred from installer URLs and may differ from the saved names. Drive versions come from the encrypted configuration. Availability and checksum verification are confirmed only during the actual download.
+`-CheckOnly` previews the same package selection without creating the destination folder or downloading installers. It reads the latest WinGet version and installer metadata, resolves the uTorrent Classic release version and hash, and checks the Drive file's response headers, filename, and size. WinGet filenames shown in this preview are inferred from installer URLs and may differ from the saved names. Drive versions come from the encrypted configuration. Availability and checksum verification are confirmed only during the actual download.
 
 To run directly from the public repository in a Windows PowerShell console, without cloning or saving the files yourself:
 
@@ -58,7 +58,15 @@ Keep the Drive entry in the ignored `packages.local.json`:
 }
 ```
 
-`source` identifies the download provider. `winget` and `google-drive` are implemented; direct URLs and GitHub Releases remain future options. WinGet selects the latest version for the requested architecture. The script resolves that version with `winget show`, pins the same version for `winget download`, and leaves WinGet's installer hash verification enabled. It uses `--skip-dependencies` to download only the listed application's installer.
+`source` identifies the download provider. WinGet selects the latest version for the requested architecture. The script resolves that version with `winget show`, pins the same version for `winget download`, and leaves WinGet's installer hash verification enabled. It uses `--skip-dependencies` to download only the listed application's installer.
+
+Signal uses WinGet ID `OpenWhisperSystems.Signal`. µTorrent Classic uses the publisher's stable download endpoint:
+
+```json
+{ "name": "uTorrent Classic", "source": "utorrent-classic", "url": "https://download-new.utorrent.com/endpoint/utorrent/os/windows/track/stable" }
+```
+
+The µTorrent source reads the redirected release URL to report its version and build, and verifies the downloaded installer against the publisher's SHA-256 metadata. The publisher currently provides a Windows installer rather than a separate x64 download, so `-Architecture` does not affect this entry. This source requires its official stable endpoint; other arbitrary direct URLs and GitHub Releases are not supported yet.
 
 A Google Drive entry points to a **single file ID**, not its parent folder. The `version` value is supplied by the configuration, not verified against a software publisher. Google Drive downloads do not receive WinGet checksum verification. The script rejects an empty response or an HTML warning page instead of saving it as an ISO. Drive files must remain anonymously downloadable; this script does not sign in to Google.
 
