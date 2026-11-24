@@ -12,3 +12,6 @@ jobs:
       - name: Parse PowerShell scripts and validate JSON
         shell: pwsh
         run: ./validate.ps1
+      - name: Test Google Drive file handling with a stub response
+        shell: pwsh
+        run: ./tests/google-drive.ps1

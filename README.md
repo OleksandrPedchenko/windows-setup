@@ -1,6 +1,6 @@
 # windows-setup
 
-A small, configuration-driven PowerShell utility that downloads Windows application installers through WinGet. It does not install applications.
+A small, configuration-driven PowerShell utility that downloads Windows application installers through WinGet and optional ISO files from Google Drive. It does not install applications.
 
 ## Requirements
 
@@ -25,7 +25,7 @@ To run directly from the public repository in a Windows PowerShell console, with
 irm 'https://raw.githubusercontent.com/OleksandrPedchenko/windows-setup/main/download.ps1' -UseBasicParsing | iex
 ```
 
-This fetches `packages.json` from the same repository. Installers go to `downloads` in the current directory. To pass parameters, invoke the fetched text as a script block:
+This fetches the public `packages.json` from the same repository. Installers go to `downloads` in the current directory. To pass parameters, invoke the fetched text as a script block:
 
 ```powershell
 & ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/OleksandrPedchenko/windows-setup/main/download.ps1' -UseBasicParsing))) -Destination 'C:\Installers' -Architecture arm64
@@ -40,15 +40,18 @@ Edit `packages.json` to add or remove packages:
 ```json
 {
   "packages": [
-    { "name": "VLC", "source": "winget", "id": "VideoLAN.VLC" }
+    { "name": "VLC", "source": "winget", "id": "VideoLAN.VLC" },
+    { "name": "My ISO", "source": "google-drive", "id": "YOUR_FILE_ID", "filename": "MyFile.iso", "version": "YOUR_VERSION" }
   ]
 }
 ```
 
-`source` identifies the download provider. Only `winget` is implemented; the field leaves room for direct URLs or GitHub Releases later. WinGet selects the latest version for the requested architecture. The script resolves that version with `winget show`, pins the same version for `winget download`, and leaves WinGet's installer hash verification enabled. It uses `--skip-dependencies` to download only the listed application's installer.
+`source` identifies the download provider. `winget` and `google-drive` are implemented; direct URLs and GitHub Releases remain future options. WinGet selects the latest version for the requested architecture. The script resolves that version with `winget show`, pins the same version for `winget download`, and leaves WinGet's installer hash verification enabled. It uses `--skip-dependencies` to download only the listed application's installer.
+
+A Google Drive entry points to a **single file ID**, not its parent folder. Keep private links in `packages.local.json`, which is ignored by Git, and run `powershell.exe -NoProfile -File .\download.ps1 -ConfigPath .\packages.local.json`. For remote script execution with private local configuration, pass `-ConfigPath 'C:\path\packages.local.json'` using the script-block form above. The `version` value is supplied by the configuration, not verified against a software publisher. Google Drive downloads do not receive WinGet checksum verification. The script rejects an empty response or an HTML warning page instead of saving it as an ISO. The Drive file must remain downloadable to the user running the script.
 
 ## Validation and limits
 
-Run `pwsh -NoProfile -File ./validate.ps1` on macOS, Linux, or Windows to parse the PowerShell scripts with the AST parser and validate the JSON structure. GitHub Actions runs the same check on pushes and pull requests. Passing this check confirms syntax and configuration shape only; it does **not** verify WinGet behavior, installer availability, checksum validation, or Windows PowerShell 5.1 execution. Those require testing on Windows.
+Run `pwsh -NoProfile -File ./validate.ps1` on macOS, Linux, or Windows to parse the PowerShell scripts with the AST parser and validate the JSON structure. Run `pwsh -NoProfile -File ./tests/google-drive.ps1` for a local stub test of the Drive file handling. GitHub Actions runs both on pushes and pull requests. These checks do **not** verify real WinGet behavior, a complete Google Drive ISO download, installer availability, checksum validation, or Windows PowerShell 5.1 execution. Those require testing on Windows.
 
 WinGet must support `download`; older installations may need an App Installer update. Some packages may not provide an installer for a requested architecture or may fail because of network, publisher, or source conditions. WinGet output is parsed to report a version, so the version field depends on `winget show` presenting its `Version:` field in English. Existing installers in the destination may be replaced by WinGet; the summary includes files created or changed by each successful download.

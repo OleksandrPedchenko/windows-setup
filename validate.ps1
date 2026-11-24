@@ -3,7 +3,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$scripts = @('download.ps1', 'validate.ps1')
+$scripts = @('download.ps1', 'validate.ps1', 'tests/google-drive.ps1')
 $failed = $false
 
 foreach ($name in $scripts) {
@@ -33,6 +33,9 @@ try {
     foreach ($package in $config.packages) {
         if (-not $package.name -or -not $package.source -or -not $package.id) {
             throw 'Each package needs name, source, and id'
+        }
+        if ($package.source -eq 'google-drive' -and (-not $package.filename -or -not $package.version)) {
+            throw 'Google Drive packages need filename and version'
         }
     }
     Write-Host 'JSON OK: packages.json'

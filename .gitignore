@@ -1,4 +1,5 @@
 downloads/
+packages.local.json
 *.exe
 *.msi
 *.msix
@@ -6,6 +7,8 @@ downloads/
 *.appx
 *.appxbundle
 *.zip
+*.iso
+*.partial
 *.tmp
 *.log
 .DS_Store
