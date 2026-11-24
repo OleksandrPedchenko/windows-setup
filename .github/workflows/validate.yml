@@ -12,7 +12,7 @@ jobs:
       - name: Parse PowerShell scripts and validate JSON
         shell: pwsh
         run: ./validate.ps1
-      - name: Test Google Drive file handling with a stub response
+      - name: Test Google Drive file handling with a local fixture
         shell: pwsh
         run: ./tests/google-drive.ps1
       - name: Test encrypted configuration
@@ -21,3 +21,6 @@ jobs:
       - name: Test check-only mode
         shell: pwsh
         run: ./tests/check-only.ps1
+      - name: Test WinGet installer-only output
+        shell: pwsh
+        run: ./tests/winget-download.ps1

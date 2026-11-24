@@ -67,7 +67,7 @@ Keep the Drive entry in the ignored `packages.local.json`:
 }
 ```
 
-`source` identifies the download provider. WinGet selects the latest version for the requested architecture. The script resolves that version with `winget show`, pins the same version for `winget download`, and leaves WinGet's installer hash verification enabled. It uses `--skip-dependencies` to download only the listed application's installer.
+`source` identifies the download provider. WinGet selects the latest version for the requested architecture. The script resolves that version with `winget show`, pins the same version for `winget download`, and leaves WinGet's installer hash verification enabled. It uses `--skip-dependencies` to download only the listed application's installer. WinGet also generates YAML manifests; the script downloads each package into a temporary folder, moves only installer files into the destination, and removes the temporary folder and YAML files.
 
 Signal uses WinGet ID `OpenWhisperSystems.Signal`. µTorrent Classic uses the publisher's stable download endpoint:
 

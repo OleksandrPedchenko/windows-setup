@@ -197,22 +197,26 @@ foreach ($package in $config.packages) {
                 $hash = [regex]::Match($details, '(?m)^\s*Installer SHA256:\s*([A-Fa-f0-9]{64})')
                 if ($hash.Success) { Write-Host "Manifest SHA256: $($hash.Groups[1].Value)" }
             } else {
-                $before = @{}
-                foreach ($file in Get-ChildItem -LiteralPath $Destination -File) {
-                    $before[$file.FullName] = "$($file.Length):$($file.LastWriteTimeUtc.Ticks)"
+                $stage = Join-Path $Destination ('.winget-' + [guid]::NewGuid().ToString('N'))
+                $null = New-Item -ItemType Directory -Path $stage
+                try {
+                    Write-Host "Downloading $($package.name) $version ($Architecture)..."
+                    $downloadTimer = [System.Diagnostics.Stopwatch]::StartNew()
+                    & winget download --id $package.id --exact --source winget --version $version --architecture $Architecture --download-directory $stage --skip-dependencies --accept-source-agreements --accept-package-agreements
+                    $downloadTimer.Stop()
+                    if ($LASTEXITCODE -ne 0) { throw 'WinGet download failed.' }
+
+                    $installers = @(Get-ChildItem -LiteralPath $stage -File | Where-Object {
+                        $_.Extension -in @('.exe', '.msi', '.msix', '.msixbundle', '.appx', '.appxbundle', '.zip')
+                    })
+                    if ($installers.Count -eq 0) { throw 'WinGet returned success, but no installer was found.' }
+                    $files = @($installers | Select-Object -ExpandProperty Name)
+                    foreach ($installer in $installers) {
+                        Move-Item -LiteralPath $installer.FullName -Destination (Join-Path $Destination $installer.Name) -Force
+                    }
+                } finally {
+                    if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Recurse -Force }
                 }
-
-                Write-Host "Downloading $($package.name) $version ($Architecture)..."
-                $downloadTimer = [System.Diagnostics.Stopwatch]::StartNew()
-                & winget download --id $package.id --exact --source winget --version $version --architecture $Architecture --download-directory $Destination --skip-dependencies --accept-source-agreements --accept-package-agreements
-                $downloadTimer.Stop()
-                if ($LASTEXITCODE -ne 0) { throw 'WinGet download failed.' }
-
-                $files = @(Get-ChildItem -LiteralPath $Destination -File | Where-Object {
-                    $_.Extension -in @('.exe', '.msi', '.msix', '.msixbundle', '.appx', '.appxbundle', '.zip') -and
-                    ((-not $before.ContainsKey($_.FullName)) -or $before[$_.FullName] -ne "$($_.Length):$($_.LastWriteTimeUtc.Ticks)")
-                } | Select-Object -ExpandProperty Name)
-                if ($files.Count -eq 0) { throw 'WinGet returned success, but no new or changed installer was found.' }
             }
         } elseif ($package.source -eq 'utorrent-classic') {
             if ($package.url -ne 'https://download-new.utorrent.com/endpoint/utorrent/os/windows/track/stable') {
