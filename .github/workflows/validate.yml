@@ -15,3 +15,6 @@ jobs:
       - name: Test Google Drive file handling with a stub response
         shell: pwsh
         run: ./tests/google-drive.ps1
+      - name: Test encrypted configuration
+        shell: pwsh
+        run: ./tests/encrypted-config.ps1

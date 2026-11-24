@@ -2,13 +2,91 @@ param(
     [string]$Destination = (Join-Path $(if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }) 'downloads'),
     [ValidateSet('x86', 'x64', 'arm', 'arm64')]
     [string]$Architecture = 'x64',
-    [string]$ConfigPath = $(if ($PSScriptRoot) { Join-Path $PSScriptRoot 'packages.json' } else { 'https://raw.githubusercontent.com/OleksandrPedchenko/windows-setup/main/packages.json' })
+    [string]$ConfigPath = $(if ($PSScriptRoot) { Join-Path $PSScriptRoot 'packages.json' } else { 'https://raw.githubusercontent.com/OleksandrPedchenko/windows-setup/main/packages.json' }),
+    [string]$EncryptedConfigPath,
+    [switch]$EncryptConfig
 )
 
+& {
 $ErrorActionPreference = 'Stop'
 
+function ConvertFrom-WsSecureString {
+    param([System.Security.SecureString]$Value)
+    $pointer = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($Value)
+    try { [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer) }
+    finally { [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer) }
+}
+
+function Get-WsKeys {
+    param([string]$Password, [byte[]]$Salt)
+    $kdf = [System.Security.Cryptography.Rfc2898DeriveBytes]::new($Password, $Salt, 600000)
+    try { $bytes = $kdf.GetBytes(64) }
+    finally { $kdf.Dispose() }
+    $keys = @{
+        Encryption = [byte[]]$bytes[0..31]
+        Authentication = [byte[]]$bytes[32..63]
+    }
+    [array]::Clear($bytes, 0, $bytes.Length)
+    $keys
+}
+
+function Get-WsTag {
+    param([byte[]]$Key, [string]$Salt, [string]$Data)
+    $hmac = [System.Security.Cryptography.HMACSHA256]::new($Key)
+    try { $hmac.ComputeHash([System.Text.Encoding]::UTF8.GetBytes("windows-setup-v1`n$Salt`n$Data")) }
+    finally { $hmac.Dispose() }
+}
+
 try {
-    if ($ConfigPath -match '^https?://') {
+    if ($EncryptConfig) {
+        if (-not $EncryptedConfigPath -or $ConfigPath -match '^https?://') {
+            throw 'Encryption needs a local -ConfigPath and an -EncryptedConfigPath output file.'
+        }
+        $json = Get-Content -LiteralPath $ConfigPath -Raw
+        $null = $json | ConvertFrom-Json
+        $first = ConvertFrom-WsSecureString (Read-Host 'New config passphrase' -AsSecureString)
+        $second = ConvertFrom-WsSecureString (Read-Host 'Repeat passphrase' -AsSecureString)
+        if (-not $first -or $first -cne $second) { throw 'Passphrases do not match or are empty.' }
+        $salt = New-Object byte[] 16
+        $random = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+        try { $random.GetBytes($salt) }
+        finally { $random.Dispose() }
+        $saltText = [Convert]::ToBase64String($salt)
+        $keys = Get-WsKeys $first $salt
+        $data = ConvertFrom-SecureString (ConvertTo-SecureString $json -AsPlainText -Force) -Key $keys.Encryption
+        $tag = Get-WsTag $keys.Authentication $saltText $data
+        $encrypted = [pscustomobject]@{
+            format = 'windows-setup-v1'
+            salt = $saltText
+            data = $data
+            tag = [Convert]::ToBase64String($tag)
+        }
+        $encrypted | ConvertTo-Json -Compress | Set-Content -LiteralPath $EncryptedConfigPath -Encoding UTF8
+        Write-Host "Encrypted configuration saved to $EncryptedConfigPath"
+        return
+    }
+
+    if ($EncryptedConfigPath) {
+        if ($EncryptedConfigPath -match '^https?://') {
+            $encrypted = Invoke-RestMethod -Uri $EncryptedConfigPath -UseBasicParsing
+        } else {
+            $encrypted = Get-Content -LiteralPath $EncryptedConfigPath -Raw | ConvertFrom-Json
+        }
+        if ($encrypted.format -ne 'windows-setup-v1' -or -not $encrypted.data -or -not $encrypted.tag) {
+            throw 'Unsupported or incomplete encrypted configuration.'
+        }
+        $salt = [Convert]::FromBase64String($encrypted.salt)
+        $storedTag = [Convert]::FromBase64String($encrypted.tag)
+        if ($salt.Length -ne 16 -or $storedTag.Length -ne 32) { throw 'Invalid encrypted configuration.' }
+        $password = ConvertFrom-WsSecureString (Read-Host 'Config passphrase' -AsSecureString)
+        $keys = Get-WsKeys $password $salt
+        $expectedTag = Get-WsTag $keys.Authentication $encrypted.salt $encrypted.data
+        $difference = 0
+        for ($i = 0; $i -lt 32; $i++) { $difference = $difference -bor ($storedTag[$i] -bxor $expectedTag[$i]) }
+        if ($difference -ne 0) { throw 'Incorrect passphrase or modified encrypted configuration.' }
+        $secureJson = ConvertTo-SecureString $encrypted.data -Key $keys.Encryption
+        $config = ConvertFrom-WsSecureString $secureJson | ConvertFrom-Json
+    } elseif ($ConfigPath -match '^https?://') {
         $config = Invoke-RestMethod -Uri $ConfigPath -UseBasicParsing
     } else {
         $config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
@@ -105,4 +183,5 @@ Write-Host "`nSummary"
 $results | Format-Table -AutoSize | Out-Host
 if (@($results | Where-Object Status -eq 'Failed').Count -gt 0) {
     throw 'One or more package downloads failed.'
+}
 }

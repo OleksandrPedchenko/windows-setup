@@ -48,10 +48,26 @@ Edit `packages.json` to add or remove packages:
 
 `source` identifies the download provider. `winget` and `google-drive` are implemented; direct URLs and GitHub Releases remain future options. WinGet selects the latest version for the requested architecture. The script resolves that version with `winget show`, pins the same version for `winget download`, and leaves WinGet's installer hash verification enabled. It uses `--skip-dependencies` to download only the listed application's installer.
 
-A Google Drive entry points to a **single file ID**, not its parent folder. Keep private links in `packages.local.json`, which is ignored by Git, and run `powershell.exe -NoProfile -File .\download.ps1 -ConfigPath .\packages.local.json`. For remote script execution with private local configuration, pass `-ConfigPath 'C:\path\packages.local.json'` using the script-block form above. The `version` value is supplied by the configuration, not verified against a software publisher. Google Drive downloads do not receive WinGet checksum verification. The script rejects an empty response or an HTML warning page instead of saving it as an ISO. The Drive file must remain downloadable to the user running the script.
+A Google Drive entry points to a **single file ID**, not its parent folder. Keep private links in `packages.local.json`, which is ignored by Git, and run `powershell.exe -NoProfile -File .\download.ps1 -ConfigPath .\packages.local.json`. For remote script execution with private local configuration, pass `-ConfigPath 'C:\path\packages.local.json'` using the script-block form above. The `version` value is supplied by the configuration, not verified against a software publisher. Google Drive downloads do not receive WinGet checksum verification. The script rejects an empty response or an HTML warning page instead of saving it as an ISO. Drive files must remain anonymously downloadable; this script does not sign in to Google.
+
+### Password-encrypted configuration
+
+To create a portable encrypted configuration from your ignored local file, run this on your own machine. The script prompts twice for a passphrase; do not place it in a command or send it to anyone:
+
+```powershell
+powershell.exe -NoProfile -File .\download.ps1 -EncryptConfig -ConfigPath .\packages.local.json -EncryptedConfigPath .\packages.encrypted.json
+```
+
+To use the encrypted file, run:
+
+```powershell
+powershell.exe -NoProfile -File .\download.ps1 -EncryptedConfigPath .\packages.encrypted.json -Destination 'C:\Installers'
+```
+
+You can publish `packages.encrypted.json` for use on another computer, or pass its HTTPS URL to `-EncryptedConfigPath` with the script-block invocation above. The passphrase is requested at runtime. Encryption uses PowerShell's AES secure-string format with a random salt, 600,000 PBKDF2 iterations, and an HMAC check for tampering. Use a strong, unique passphrase: anyone with the encrypted file can try guesses offline. This protects the file ID in the configuration; it does not change Google Drive's sharing permissions or invalidate any previously exposed link.
 
 ## Validation and limits
 
-Run `pwsh -NoProfile -File ./validate.ps1` on macOS, Linux, or Windows to parse the PowerShell scripts with the AST parser and validate the JSON structure. Run `pwsh -NoProfile -File ./tests/google-drive.ps1` for a local stub test of the Drive file handling. GitHub Actions runs both on pushes and pull requests. These checks do **not** verify real WinGet behavior, a complete Google Drive ISO download, installer availability, checksum validation, or Windows PowerShell 5.1 execution. Those require testing on Windows.
+Run `pwsh -NoProfile -File ./validate.ps1` on macOS, Linux, or Windows to parse the PowerShell scripts with the AST parser and validate the JSON structure. Run `pwsh -NoProfile -File ./tests/google-drive.ps1` and `pwsh -NoProfile -File ./tests/encrypted-config.ps1` for local stub tests. GitHub Actions runs all checks on pushes and pull requests. These checks do **not** verify real WinGet behavior, a complete Google Drive ISO download, installer availability, checksum validation, or Windows PowerShell 5.1 execution. Those require testing on Windows.
 
 WinGet must support `download`; older installations may need an App Installer update. Some packages may not provide an installer for a requested architecture or may fail because of network, publisher, or source conditions. WinGet output is parsed to report a version, so the version field depends on `winget show` presenting its `Version:` field in English. Existing installers in the destination may be replaced by WinGet; the summary includes files created or changed by each successful download.
