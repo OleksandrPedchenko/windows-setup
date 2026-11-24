@@ -1,0 +1,53 @@
+# windows-setup
+
+A small, configuration-driven PowerShell utility that downloads Windows application installers through WinGet. It does not install applications.
+
+## Requirements
+
+- Windows with Windows PowerShell 5.1 or later.
+- [WinGet](https://learn.microsoft.com/en-us/windows/package-manager/winget/) with the `download` command available.
+- Network access to the WinGet source and the installer publishers.
+
+## Use
+
+From a local copy of this repository:
+
+```powershell
+powershell.exe -NoProfile -File .\download.ps1
+powershell.exe -NoProfile -File .\download.ps1 -Destination 'C:\Installers' -Architecture arm64
+```
+
+The default destination is `downloads` beside the script. The default architecture is `x64`; accepted values are `x86`, `x64`, `arm`, and `arm64`. Use `-ConfigPath` to supply another JSON file. The script prints each successful version and a final table of package names, versions, filenames, and statuses. It continues after individual failures and exits with code 1 if any package fails.
+
+To run the public repository version without cloning it, download the script and its configuration to a temporary folder, then execute it:
+
+```powershell
+$base = 'https://raw.githubusercontent.com/OleksandrPedchenko/windows-setup/main'
+$dir = Join-Path $env:TEMP 'windows-setup'
+New-Item -ItemType Directory -Path $dir -Force | Out-Null
+Invoke-WebRequest "$base/download.ps1" -UseBasicParsing -OutFile (Join-Path $dir 'download.ps1')
+Invoke-WebRequest "$base/packages.json" -UseBasicParsing -OutFile (Join-Path $dir 'packages.json')
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $dir 'download.ps1') -Destination 'C:\Installers'
+```
+
+Review the downloaded script and configuration before executing them. To preserve a specific revision, replace `main` in `$base` with a commit hash.
+
+## Configuration
+
+Edit `packages.json` to add or remove packages:
+
+```json
+{
+  "packages": [
+    { "name": "VLC", "source": "winget", "id": "VideoLAN.VLC" }
+  ]
+}
+```
+
+`source` identifies the download provider. Only `winget` is implemented; the field leaves room for direct URLs or GitHub Releases later. WinGet selects the latest version for the requested architecture. The script resolves that version with `winget show`, pins the same version for `winget download`, and leaves WinGet's installer hash verification enabled. It uses `--skip-dependencies` to download only the listed application's installer.
+
+## Validation and limits
+
+Run `pwsh -NoProfile -File ./validate.ps1` on macOS, Linux, or Windows to parse the PowerShell scripts with the AST parser and validate the JSON structure. GitHub Actions runs the same check on pushes and pull requests. Passing this check confirms syntax and configuration shape only; it does **not** verify WinGet behavior, installer availability, checksum validation, or Windows PowerShell 5.1 execution. Those require testing on Windows.
+
+WinGet must support `download`; older installations may need an App Installer update. Some packages may not provide an installer for a requested architecture or may fail because of network, publisher, or source conditions. WinGet output is parsed to report a version, so the version field depends on `winget show` presenting its `Version:` field in English. Existing installers in the destination may be replaced by WinGet; the summary includes files created or changed by each successful download.

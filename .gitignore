@@ -1,0 +1,11 @@
+downloads/
+*.exe
+*.msi
+*.msix
+*.msixbundle
+*.appx
+*.appxbundle
+*.zip
+*.tmp
+*.log
+.DS_Store

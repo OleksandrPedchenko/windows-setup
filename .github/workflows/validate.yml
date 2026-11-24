@@ -1,0 +1,14 @@
+name: Validate
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  syntax-and-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse PowerShell scripts and validate JSON
+        shell: pwsh
+        run: ./validate.ps1

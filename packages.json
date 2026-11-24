@@ -1,0 +1,9 @@
+{
+  "packages": [
+    { "name": "Google Chrome", "source": "winget", "id": "Google.Chrome" },
+    { "name": "WinRAR", "source": "winget", "id": "RARLab.WinRAR" },
+    { "name": "Telegram Desktop", "source": "winget", "id": "Telegram.TelegramDesktop" },
+    { "name": "Viber", "source": "winget", "id": "Rakuten.Viber" },
+    { "name": "VLC", "source": "winget", "id": "VideoLAN.VLC" }
+  ]
+}
