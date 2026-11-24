@@ -3,7 +3,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$scripts = @('download.ps1', 'validate.ps1', 'tests/google-drive.ps1', 'tests/encrypted-config.ps1', 'tests/check-only.ps1', 'tests/winget-download.ps1')
+$scripts = @('download.ps1', 'validate.ps1', 'tests/google-drive.ps1', 'tests/encrypted-config.ps1', 'tests/check-only.ps1', 'tests/winget-download.ps1', 'tests/package-selection.ps1')
 $failed = $false
 
 foreach ($name in $scripts) {

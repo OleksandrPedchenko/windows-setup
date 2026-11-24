@@ -24,3 +24,6 @@ jobs:
       - name: Test WinGet installer-only output
         shell: pwsh
         run: ./tests/winget-download.ps1
+      - name: Test interactive package selection
+        shell: pwsh
+        run: ./tests/package-selection.ps1

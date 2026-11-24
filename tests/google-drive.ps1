@@ -27,6 +27,7 @@ Set-Content -LiteralPath $scriptPath -Value $scriptText
 
 $python = (Get-Command python3 -ErrorAction Stop).Source
 $server = Start-Process -FilePath $python -ArgumentList @('-m', 'http.server', $port, '--bind', '127.0.0.1', '--directory', $work) -PassThru -RedirectStandardOutput (Join-Path $work 'server.out') -RedirectStandardError (Join-Path $work 'server.err')
+function Read-Host { '' }
 try {
     $ready = $false
     for ($i = 0; $i -lt 50; $i++) {

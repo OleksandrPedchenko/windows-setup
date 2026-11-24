@@ -155,6 +155,27 @@ try {
             }
         }
     }
+    $availablePackages = @($config.packages)
+    Write-Host "`nPackages"
+    for ($i = 0; $i -lt $availablePackages.Count; $i++) {
+        Write-Host ("{0}. {1}" -f ($i + 1), $availablePackages[$i].name)
+    }
+    $selection = Read-Host 'Select package numbers separated by commas (Enter for all)'
+    if (-not [string]::IsNullOrWhiteSpace($selection)) {
+        $selected = @()
+        $numbers = @()
+        foreach ($item in $selection -split ',') {
+            $number = 0
+            if (-not [int]::TryParse($item.Trim(), [ref]$number) -or $number -lt 1 -or $number -gt $availablePackages.Count) {
+                throw "Invalid package number: $item"
+            }
+            if ($numbers -notcontains $number) {
+                $selected += $availablePackages[$number - 1]
+                $numbers += $number
+            }
+        }
+        $config.packages = $selected
+    }
     $Destination = [System.IO.Path]::GetFullPath($Destination)
     if (-not $CheckOnly) { $null = New-Item -ItemType Directory -Path $Destination -Force }
 } catch { throw }

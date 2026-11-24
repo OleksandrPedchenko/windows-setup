@@ -8,6 +8,7 @@ Copy-Item -LiteralPath (Join-Path $root 'download.ps1') -Destination (Join-Path 
 @{ packages = @(@{ name = 'Example app'; source = 'winget'; id = 'Example.App' }) } |
     ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $configPath
 Set-Content -LiteralPath (Join-Path $destination 'existing.yaml') -Value 'keep me'
+function Read-Host { '' }
 
 function winget {
     $global:LASTEXITCODE = 0

@@ -14,6 +14,11 @@ $encryptedPath = Join-Path $work 'encrypted.json'
 
 function Read-Host {
     param([string]$Prompt, [switch]$AsSecureString)
+    if (-not $AsSecureString) {
+        $global:promptOrder += 'selection'
+        return [string]$global:selectedNumbers
+    }
+    $global:promptOrder += 'passphrase'
     if ($global:skipPrivate) { return [System.Security.SecureString]::new() }
     $password = if ($global:wrongPassword) { 'wrong password' } else { 'correct horse battery staple' }
     ConvertTo-SecureString $password -AsPlainText -Force
@@ -69,8 +74,12 @@ try {
         if ($_.Exception.Message -notlike '*Incorrect passphrase or modified encrypted configuration*') { throw }
     }
 
+    $global:selectedNumbers = '2'
+    $global:promptOrder = @()
     $localPreview = & (Join-Path $root 'download.ps1') -ConfigPath $publicPath -EncryptedConfigPath $encryptedPath -CheckOnly 6>&1 | Out-String
-    if ($localPreview -notmatch 'Example ISO' -or $localPreview -notmatch 'Public app') { throw 'Decrypted config was not combined with public config.' }
+    if (($global:promptOrder -join ',') -ne 'passphrase,selection') { throw 'Package selection did not follow the passphrase prompt.' }
+    if ($localPreview -notmatch 'Checked Example ISO' -or $localPreview -match 'Checked Public app') { throw 'Private package selection did not filter the preview.' }
+    $global:selectedNumbers = ''
     $remotePreview = & (Join-Path $root 'download.ps1') -ConfigPath $publicPath -EncryptedConfigPath 'https://example.test/packages.encrypted.json' -CheckOnly 6>&1 | Out-String
     if ($remotePreview -notmatch 'Example ISO') { throw 'Remote encrypted config was not used.' }
 

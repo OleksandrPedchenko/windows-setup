@@ -32,6 +32,8 @@ irm 'https://raw.githubusercontent.com/OleksandrPedchenko/windows-setup/main/dow
 
 This fetches the public `packages.json` and encrypted `packages.encrypted.json` from the same repository. The script asks for a passphrase: enter it to include the private ISO, or press Enter to download only the public packages. Installers go to `downloads` in the current directory.
 
+After the passphrase prompt, the script shows a numbered list of available packages. Enter numbers separated by commas (for example, `1,3`) to download or preview only those packages. Press Enter to select all listed packages. The private ISO appears in the list only if you entered its passphrase. Invalid numbers stop the run before any downloads.
+
 To pass flags, fetch the same script into a variable and invoke it as a script block. For example, run the first line, then choose **one** of the commands below:
 
 ```powershell

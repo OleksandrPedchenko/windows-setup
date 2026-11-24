@@ -12,6 +12,7 @@ Copy-Item -LiteralPath (Join-Path $root 'download.ps1') -Destination (Join-Path 
     )
 } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $configPath
 
+function Read-Host { '' }
 function winget {
     $global:LASTEXITCODE = 0
     if ($args[0] -eq 'show') { 'Version: 2.0'; 'Installer Url: https://example.test/Public-2.0.exe'; return }
