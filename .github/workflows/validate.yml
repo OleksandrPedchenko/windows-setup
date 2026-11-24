@@ -18,3 +18,6 @@ jobs:
       - name: Test encrypted configuration
         shell: pwsh
         run: ./tests/encrypted-config.ps1
+      - name: Test check-only mode
+        shell: pwsh
+        run: ./tests/check-only.ps1

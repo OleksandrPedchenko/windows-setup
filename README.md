@@ -15,9 +15,12 @@ From a local copy of this repository:
 ```powershell
 powershell.exe -NoProfile -File .\download.ps1
 powershell.exe -NoProfile -File .\download.ps1 -Destination 'C:\Installers' -Architecture arm64
+powershell.exe -NoProfile -File .\download.ps1 -CheckOnly
 ```
 
 The default destination is `downloads` beside the script. The default architecture is `x64`; accepted values are `x86`, `x64`, `arm`, and `arm64`. Use `-ConfigPath` to supply another JSON file. The script prints each successful version and a final table of package names, versions, filenames, and statuses. It continues after individual failures and exits with code 1 if any package fails.
+
+`-CheckOnly` previews the same package selection without creating the destination folder or downloading installers. It reads the latest WinGet version and installer metadata, and checks the Drive file's response headers, filename, and size. WinGet filenames shown in this preview are inferred from installer URLs and may differ from the saved names. Drive versions come from the encrypted configuration. Availability and checksum verification are confirmed only during the actual download.
 
 To run directly from the public repository in a Windows PowerShell console, without cloning or saving the files yourself:
 
@@ -75,8 +78,10 @@ powershell.exe -NoProfile -File .\download.ps1 -Destination 'C:\Installers'
 
 You can publish `packages.encrypted.json` beside the script for the same choice with the remote one-liner. Use `-EncryptedConfigPath` if the encrypted file is elsewhere. A wrong passphrase stops the run before any download. Encryption uses PowerShell's AES secure-string format with a random salt, 600,000 PBKDF2 iterations, and an HMAC check for tampering. Use a strong, unique passphrase: anyone with the encrypted file can try guesses offline. This protects the file ID in the configuration; it does not change Google Drive's sharing permissions or invalidate any previously exposed link.
 
+Use `-CheckOnly` together with the passphrase prompt to preview both public and private packages, or press Enter to preview only the public ones.
+
 ## Validation and limits
 
-Run `pwsh -NoProfile -File ./validate.ps1` on macOS, Linux, or Windows to parse the PowerShell scripts with the AST parser and validate the JSON structure. Run `pwsh -NoProfile -File ./tests/google-drive.ps1` and `pwsh -NoProfile -File ./tests/encrypted-config.ps1` for local stub tests. GitHub Actions runs all checks on pushes and pull requests. These checks do **not** verify real WinGet behavior, a complete Google Drive ISO download, installer availability, checksum validation, or Windows PowerShell 5.1 execution. Those require testing on Windows.
+Run `pwsh -NoProfile -File ./validate.ps1` on macOS, Linux, or Windows to parse the PowerShell scripts with the AST parser and validate the JSON structure. Run the scripts under `tests/` for local stub tests. GitHub Actions runs all checks on pushes and pull requests. These checks do **not** verify real WinGet behavior, a complete Google Drive ISO download, installer availability, checksum validation, or Windows PowerShell 5.1 execution. Those require testing on Windows.
 
 WinGet must support `download`; older installations may need an App Installer update. Some packages may not provide an installer for a requested architecture or may fail because of network, publisher, or source conditions. WinGet output is parsed to report a version, so the version field depends on `winget show` presenting its `Version:` field in English. Existing installers in the destination may be replaced by WinGet; the summary includes files created or changed by each successful download.

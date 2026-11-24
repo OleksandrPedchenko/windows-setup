@@ -19,7 +19,11 @@ function Read-Host {
     ConvertTo-SecureString $password -AsPlainText -Force
 }
 function Invoke-WebRequest {
-    param([string]$Uri, [string]$OutFile, [switch]$UseBasicParsing)
+    param([string]$Uri, [string]$OutFile, [string]$Method, [switch]$UseBasicParsing)
+    if ($Method -eq 'Head') {
+        $global:driveChecks++
+        return [pscustomobject]@{ StatusCode = 200; Headers = @{ 'Content-Type' = 'application/octet-stream'; 'Content-Length' = '123'; 'Content-Disposition' = 'attachment; filename="Example.iso"' } }
+    }
     $global:driveRequests++
     [System.IO.File]::WriteAllBytes($OutFile, [byte[]](0, 1, 2, 3))
 }
@@ -28,6 +32,7 @@ function winget {
     if ($args[0] -eq 'show') { 'Version: 2.0'; return }
     if ($args[0] -eq 'download' -and $args[1] -eq '--help') { 'download help'; return }
     if ($args[0] -eq 'download') {
+        $global:wingetDownloads++
         $dir = $args[[array]::IndexOf($args, '--download-directory') + 1]
         Set-Content -LiteralPath (Join-Path $dir 'Public-2.0.exe') -Value 'stub'
     }
@@ -81,6 +86,21 @@ try {
     & (Join-Path $work 'download.ps1') -Destination (Join-Path $work 'public-only')
     if (-not (Test-Path -LiteralPath (Join-Path $work 'public-only/Public-2.0.exe'))) { throw 'Public package was skipped.' }
     if ($global:driveRequests -ne 0) { throw 'Drive was downloaded after skipping the passphrase.' }
+
+    $global:skipPrivate = $false
+    $global:wingetDownloads = 0
+    $global:driveRequests = 0
+    $global:driveChecks = 0
+    $preview = & (Join-Path $work 'download.ps1') -CheckOnly -Destination (Join-Path $work 'preview') 6>&1 | Out-String
+    if (Test-Path -LiteralPath (Join-Path $work 'preview')) { throw 'Encrypted preview created a download folder.' }
+    if ($global:wingetDownloads -ne 0 -or $global:driveRequests -ne 0) { throw 'Encrypted preview downloaded a file.' }
+    if ($global:driveChecks -ne 1 -or $preview -notmatch '1\.2\.3' -or $preview -notmatch '2\.0') { throw 'Encrypted preview missed a package.' }
+
+    $global:skipPrivate = $true
+    $global:driveChecks = 0
+    $publicPreview = & (Join-Path $work 'download.ps1') -CheckOnly -Destination (Join-Path $work 'public-preview') 6>&1 | Out-String
+    if ($global:driveChecks -ne 0 -or $publicPreview -match 'Example ISO' -or $publicPreview -notmatch 'Public app') { throw 'Public-only preview included a private package.' }
+    if (Test-Path -LiteralPath (Join-Path $work 'public-preview')) { throw 'Public-only preview created a download folder.' }
     Write-Host 'Encrypted configuration smoke test OK'
 } finally {
     Remove-Item -LiteralPath $work -Recurse -Force

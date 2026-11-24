@@ -4,7 +4,8 @@ param(
     [string]$Architecture = 'x64',
     [string]$ConfigPath = $(if ($PSScriptRoot) { Join-Path $PSScriptRoot 'packages.json' } else { 'https://raw.githubusercontent.com/OleksandrPedchenko/windows-setup/main/packages.json' }),
     [string]$EncryptedConfigPath,
-    [switch]$EncryptConfig
+    [switch]$EncryptConfig,
+    [switch]$CheckOnly
 )
 
 & {
@@ -119,7 +120,7 @@ try {
         }
     }
     $Destination = [System.IO.Path]::GetFullPath($Destination)
-    $null = New-Item -ItemType Directory -Path $Destination -Force
+    if (-not $CheckOnly) { $null = New-Item -ItemType Directory -Path $Destination -Force }
 } catch { throw }
 
 $results = @()
@@ -148,20 +149,31 @@ foreach ($package in $config.packages) {
             if (-not $match.Success) { throw 'Could not read the version from WinGet show output.' }
             $version = $match.Groups[1].Value.Trim()
 
-            $before = @{}
-            foreach ($file in Get-ChildItem -LiteralPath $Destination -File) {
-                $before[$file.FullName] = "$($file.Length):$($file.LastWriteTimeUtc.Ticks)"
+            if ($CheckOnly) {
+                $installer = [regex]::Match($details, '(?m)^\s*Installer Url:\s*(https?://\S+)')
+                $files = @('-')
+                if ($installer.Success) {
+                    $files = @([System.IO.Path]::GetFileName(([Uri]$installer.Groups[1].Value).AbsolutePath))
+                    Write-Host "Installer URL: $($installer.Groups[1].Value)"
+                }
+                $hash = [regex]::Match($details, '(?m)^\s*Installer SHA256:\s*([A-Fa-f0-9]{64})')
+                if ($hash.Success) { Write-Host "Manifest SHA256: $($hash.Groups[1].Value)" }
+            } else {
+                $before = @{}
+                foreach ($file in Get-ChildItem -LiteralPath $Destination -File) {
+                    $before[$file.FullName] = "$($file.Length):$($file.LastWriteTimeUtc.Ticks)"
+                }
+
+                Write-Host "Downloading $($package.name) $version ($Architecture)..."
+                $output = & winget download --id $package.id --exact --source winget --version $version --architecture $Architecture --download-directory $Destination --skip-dependencies --accept-source-agreements --accept-package-agreements 2>&1 | Out-String
+                if ($LASTEXITCODE -ne 0) { throw "WinGet download failed: $($output.Trim())" }
+
+                $files = @(Get-ChildItem -LiteralPath $Destination -File | Where-Object {
+                    $_.Extension -in @('.exe', '.msi', '.msix', '.msixbundle', '.appx', '.appxbundle', '.zip') -and
+                    ((-not $before.ContainsKey($_.FullName)) -or $before[$_.FullName] -ne "$($_.Length):$($_.LastWriteTimeUtc.Ticks)")
+                } | Select-Object -ExpandProperty Name)
+                if ($files.Count -eq 0) { throw 'WinGet returned success, but no new or changed installer was found.' }
             }
-
-            Write-Host "Downloading $($package.name) $version ($Architecture)..."
-            $output = & winget download --id $package.id --exact --source winget --version $version --architecture $Architecture --download-directory $Destination --skip-dependencies --accept-source-agreements --accept-package-agreements 2>&1 | Out-String
-            if ($LASTEXITCODE -ne 0) { throw "WinGet download failed: $($output.Trim())" }
-
-            $files = @(Get-ChildItem -LiteralPath $Destination -File | Where-Object {
-                $_.Extension -in @('.exe', '.msi', '.msix', '.msixbundle', '.appx', '.appxbundle', '.zip') -and
-                ((-not $before.ContainsKey($_.FullName)) -or $before[$_.FullName] -ne "$($_.Length):$($_.LastWriteTimeUtc.Ticks)")
-            } | Select-Object -ExpandProperty Name)
-            if ($files.Count -eq 0) { throw 'WinGet returned success, but no new or changed installer was found.' }
         } elseif ($package.source -eq 'google-drive') {
             $filename = [string]$package.filename
             if (-not $package.version -or
@@ -172,21 +184,36 @@ foreach ($package in $config.packages) {
             }
             $version = [string]$package.version
             $url = "https://drive.usercontent.google.com/download?id=$($package.id)&export=download&confirm=t"
-            $partial = Join-Path $Destination "$filename.partial"
-            try {
-                Write-Host "Downloading $($package.name) from Google Drive..."
-                Invoke-WebRequest -Uri $url -UseBasicParsing -OutFile $partial
-                $stream = [System.IO.File]::OpenRead($partial)
-                try {
-                    $bytes = New-Object byte[] 64
-                    $count = $stream.Read($bytes, 0, $bytes.Length)
-                } finally { $stream.Close() }
-                if ($count -eq 0 -or [System.Text.Encoding]::ASCII.GetString($bytes, 0, $count) -match '^\s*<') {
-                    throw 'Google Drive returned an empty file or an HTML page instead of the ISO.'
+            if ($CheckOnly) {
+                $head = Invoke-WebRequest -Uri $url -Method Head -UseBasicParsing
+                $contentType = [string](@($head.Headers['Content-Type'])[0])
+                $contentLength = [long](@($head.Headers['Content-Length'])[0])
+                $disposition = [string](@($head.Headers['Content-Disposition'])[0])
+                if ([int]$head.StatusCode -ne 200 -or
+                    $contentType -like 'text/html*' -or
+                    $contentLength -le 0 -or
+                    $disposition -notlike '*attachment*' -or
+                    $disposition.IndexOf($filename, [System.StringComparison]::OrdinalIgnoreCase) -lt 0) {
+                    throw 'Google Drive did not return the expected ISO metadata.'
                 }
-                Move-Item -LiteralPath $partial -Destination (Join-Path $Destination $filename) -Force
-            } finally {
-                if (Test-Path -LiteralPath $partial) { Remove-Item -LiteralPath $partial -Force }
+                Write-Host "Drive file size: $contentLength bytes"
+            } else {
+                $partial = Join-Path $Destination "$filename.partial"
+                try {
+                    Write-Host "Downloading $($package.name) from Google Drive..."
+                    Invoke-WebRequest -Uri $url -UseBasicParsing -OutFile $partial
+                    $stream = [System.IO.File]::OpenRead($partial)
+                    try {
+                        $bytes = New-Object byte[] 64
+                        $count = $stream.Read($bytes, 0, $bytes.Length)
+                    } finally { $stream.Close() }
+                    if ($count -eq 0 -or [System.Text.Encoding]::ASCII.GetString($bytes, 0, $count) -match '^\s*<') {
+                        throw 'Google Drive returned an empty file or an HTML page instead of the ISO.'
+                    }
+                    Move-Item -LiteralPath $partial -Destination (Join-Path $Destination $filename) -Force
+                } finally {
+                    if (Test-Path -LiteralPath $partial) { Remove-Item -LiteralPath $partial -Force }
+                }
             }
             $files = @($filename)
         } else {
@@ -195,8 +222,13 @@ foreach ($package in $config.packages) {
 
         if ($version) { $result.Version = $version }
         $result.Filename = $files -join ', '
-        $result.Status = 'Downloaded'
-        Write-Host "Downloaded $($package.name) $version`: $($result.Filename)"
+        if ($CheckOnly) {
+            $result.Status = 'Found'
+            Write-Host "Checked $($package.name) $version`: $($result.Filename)"
+        } else {
+            $result.Status = 'Downloaded'
+            Write-Host "Downloaded $($package.name) $version`: $($result.Filename)"
+        }
     } catch {
         Write-Warning "$($package.name): $_"
     }

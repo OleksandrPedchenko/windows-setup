@@ -3,6 +3,7 @@ $root = Split-Path -Parent $PSScriptRoot
 $work = Join-Path ([System.IO.Path]::GetTempPath()) ([guid]::NewGuid().ToString())
 $null = New-Item -ItemType Directory -Path $work
 $configPath = Join-Path $work 'packages.json'
+Copy-Item -LiteralPath (Join-Path $root 'download.ps1') -Destination (Join-Path $work 'download.ps1')
 @{
     packages = @(@{
         name = 'Example ISO'
@@ -24,13 +25,13 @@ function Invoke-WebRequest {
 }
 
 try {
-    & (Join-Path $root 'download.ps1') -ConfigPath $configPath -Destination (Join-Path $work 'output')
+    & (Join-Path $work 'download.ps1') -ConfigPath $configPath -Destination (Join-Path $work 'output')
     $expectedUrl = 'https://drive.usercontent.google.com/download?id=example-file-id&export=download&confirm=t'
     if ($global:requestedUrl -ne $expectedUrl) { throw 'The configured Drive file was not requested.' }
     if (-not (Test-Path -LiteralPath (Join-Path $work 'output/Example.iso'))) { throw 'The ISO was not saved.' }
     $global:responseHtml = $true
     try {
-        & (Join-Path $root 'download.ps1') -ConfigPath $configPath -Destination (Join-Path $work 'bad-output')
+        & (Join-Path $work 'download.ps1') -ConfigPath $configPath -Destination (Join-Path $work 'bad-output')
         throw 'An HTML response was incorrectly accepted.'
     } catch {
         if ($_.Exception.Message -eq 'An HTML response was incorrectly accepted.') { throw }
