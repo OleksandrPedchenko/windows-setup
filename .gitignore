@@ -1,6 +1,5 @@
 downloads/
 packages.local.json
-packages.encrypted.json
 *.exe
 *.msi
 *.msix

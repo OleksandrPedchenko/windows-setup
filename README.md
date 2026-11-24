@@ -28,7 +28,7 @@ To run directly from the public repository in a Windows PowerShell console, with
 irm 'https://raw.githubusercontent.com/OleksandrPedchenko/windows-setup/main/download.ps1' -UseBasicParsing | iex
 ```
 
-This fetches the public `packages.json` from the same repository. If `packages.encrypted.json` is published beside it, the script asks for a passphrase: enter it to include private packages, or press Enter to download only the public ones. Installers go to `downloads` in the current directory. To pass parameters, invoke the fetched text as a script block:
+This fetches the public `packages.json` and encrypted `packages.encrypted.json` from the same repository. The script asks for a passphrase: enter it to include the private ISO, or press Enter to download only the public packages. Installers go to `downloads` in the current directory. To pass parameters, invoke the fetched text as a script block:
 
 ```powershell
 & ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/OleksandrPedchenko/windows-setup/main/download.ps1' -UseBasicParsing))) -Destination 'C:\Installers' -Architecture arm64
@@ -84,7 +84,7 @@ Put `packages.encrypted.json` beside `download.ps1`, then run the script normall
 powershell.exe -NoProfile -File .\download.ps1 -Destination 'C:\Installers'
 ```
 
-You can publish `packages.encrypted.json` beside the script for the same choice with the remote one-liner. Use `-EncryptedConfigPath` if the encrypted file is elsewhere. A wrong passphrase stops the run before any download. Encryption uses PowerShell's AES secure-string format with a random salt, 600,000 PBKDF2 iterations, and an HMAC check for tampering. Use a strong, unique passphrase: anyone with the encrypted file can try guesses offline. This protects the file ID in the configuration; it does not change Google Drive's sharing permissions or invalidate any previously exposed link.
+The encrypted file is published beside the script so the remote one-liner offers the same choice. Use `-EncryptedConfigPath` if the encrypted file is elsewhere. A wrong passphrase stops the run before any download. Encryption uses PowerShell's AES secure-string format with a random salt, 600,000 PBKDF2 iterations, and an HMAC check for tampering. Anyone with the encrypted file can try passphrases offline. This protects the file ID in the configuration; it does not change Google Drive's sharing permissions or invalidate any previously exposed link.
 
 Use `-CheckOnly` together with the passphrase prompt to preview both public and private packages, or press Enter to preview only the public ones.
 
