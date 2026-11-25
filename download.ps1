@@ -8,6 +8,7 @@ param(
     [switch]$CheckOnly
 )
 
+$ArchitectureExplicit = $PSBoundParameters.ContainsKey('Architecture')
 & {
 $ErrorActionPreference = 'Stop'
 
@@ -196,13 +197,17 @@ foreach ($package in $config.packages) {
         }
 
         if ($package.source -eq 'winget') {
+            $wingetArchitecture = $Architecture
+            if (-not $ArchitectureExplicit -and $package.architecture) { $wingetArchitecture = [string]$package.architecture }
+            $installerOptions = @()
+            if ($package.installerType) { $installerOptions = @('--installer-type', [string]$package.installerType) }
             if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
                 throw 'WinGet is unavailable. Run on Windows with App Installer installed.'
             }
             $null = & winget download --help 2>&1 | Out-String
             if ($LASTEXITCODE -ne 0) { throw 'This WinGet version does not support the download command.' }
 
-            $details = & winget show --id $package.id --exact --source winget --architecture $Architecture --accept-source-agreements 2>&1 | Out-String
+            $details = & winget show --id $package.id --exact --source winget --architecture $wingetArchitecture @installerOptions --accept-source-agreements 2>&1 | Out-String
             if ($LASTEXITCODE -ne 0) { throw "WinGet lookup failed: $($details.Trim())" }
             $match = [regex]::Match($details, '(?m)^\s*Version:\s*([^\r\n]+)')
             if (-not $match.Success) { throw 'Could not read the version from WinGet show output.' }
@@ -221,9 +226,9 @@ foreach ($package in $config.packages) {
                 $stage = Join-Path $Destination ('.winget-' + [guid]::NewGuid().ToString('N'))
                 $null = New-Item -ItemType Directory -Path $stage
                 try {
-                    Write-Host "Downloading $($package.name) $version ($Architecture)..."
+                    Write-Host "Downloading $($package.name) $version ($wingetArchitecture)..."
                     $downloadTimer = [System.Diagnostics.Stopwatch]::StartNew()
-                    & winget download --id $package.id --exact --source winget --version $version --architecture $Architecture --download-directory $stage --skip-dependencies --accept-source-agreements --accept-package-agreements
+                    & winget download --id $package.id --exact --source winget --version $version --architecture $wingetArchitecture @installerOptions --download-directory $stage --skip-dependencies --accept-source-agreements --accept-package-agreements
                     $downloadTimer.Stop()
                     if ($LASTEXITCODE -ne 0) { throw 'WinGet download failed.' }
 

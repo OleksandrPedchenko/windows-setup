@@ -37,6 +37,9 @@ try {
         if ($package.source -eq 'winget' -and -not $package.id) {
             throw 'WinGet packages need an id'
         }
+        if ($package.architecture -and $package.architecture -notin @('x86', 'x64', 'arm', 'arm64')) {
+            throw 'Invalid package architecture'
+        }
         if ($package.source -eq 'utorrent-classic' -and -not $package.url) {
             throw 'uTorrent Classic needs a URL'
         }

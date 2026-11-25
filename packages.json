@@ -6,6 +6,10 @@
     { "name": "Viber", "source": "winget", "id": "Rakuten.Viber" },
     { "name": "VLC", "source": "winget", "id": "VideoLAN.VLC" },
     { "name": "Signal", "source": "winget", "id": "OpenWhisperSystems.Signal" },
+    { "name": "Steam", "source": "winget", "id": "Valve.Steam", "architecture": "x86" },
+    { "name": "Discord", "source": "winget", "id": "Discord.Discord" },
+    { "name": "TeamViewer", "source": "winget", "id": "TeamViewer.TeamViewer", "installerType": "nullsoft" },
+    { "name": "AnyDesk", "source": "winget", "id": "AnyDesk.AnyDesk", "architecture": "x86" },
     { "name": "uTorrent Classic", "source": "utorrent-classic", "url": "https://download-new.utorrent.com/endpoint/utorrent/os/windows/track/stable" }
   ]
 }
