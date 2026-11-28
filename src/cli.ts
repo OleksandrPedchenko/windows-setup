@@ -1,6 +1,7 @@
-import { isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { realpath } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { downloadToCache, defaultCacheRoot } from './cache.js';
+import { downloadToCache, defaultCacheRoot, importToCache } from './cache.js';
 import { discover } from './descriptors.js';
 import { compare, readLock, writeLock, type LockEntry } from './lock.js';
 import { ManualSourceError, resolveDownloadUrl, resolveMetadata, type ResolvedArtifact } from './providers.js';
@@ -34,12 +35,34 @@ function cell(value: string): string {
   return value.replaceAll('|', '\\|').replaceAll('\n', ' ');
 }
 
+async function canonicalPath(path: string): Promise<string> {
+  const missing: string[] = [];
+  let current = resolve(path);
+  for (;;) {
+    try { return resolve(await realpath(current), ...missing.reverse()); }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      missing.push(basename(current));
+      const parent = dirname(current);
+      if (parent === current) throw error;
+      current = parent;
+    }
+  }
+}
+
+function assertExternalCache(root: string, cache: string): void {
+  const path = relative(root, cache);
+  if (!path || (path !== '..' && !path.startsWith(`..${sep}`) && !isAbsolute(path))) {
+    throw new Error('cache must be outside the repository');
+  }
+}
+
 export async function main(args: string[], options: Options = {}): Promise<number> {
   const root = options.root || repositoryRoot;
   const output = options.output || console.log;
   const fetcher = options.fetcher || fetch;
   const [command, ...rest] = args;
-  if (!command || !['list', 'validate', 'check-updates', 'download'].includes(command)) throw new Error('usage: toolkit <list|validate|check-updates|download>');
+  if (!command || !['list', 'validate', 'check-updates', 'download', 'import'].includes(command)) throw new Error('usage: toolkit <list|validate|check-updates|download|import>');
   const artifacts = await discover(join(root, 'drive'));
   if (command === 'list' || command === 'validate') {
     if (rest.length) throw new Error(`${command} accepts no arguments`);
@@ -78,22 +101,33 @@ export async function main(args: string[], options: Options = {}): Promise<numbe
     } else for (const result of results) output(`${result.status}\t${result.destination}\told: ${describe(result.previous)}\tnew: ${describe(result.current)}${result.error ? `\terror: ${result.error}` : ''}`);
     return results.some(result => result.status === 'source-unavailable') ? 1 : 0;
   }
-  let destination: string | undefined;
+  const positionals: string[] = [];
   let cache = defaultCacheRoot();
   for (let i = 0; i < rest.length; i++) {
     if (rest[i] === '--cache' && rest[i + 1]) cache = rest[++i];
-    else if (!destination && !rest[i].startsWith('--')) destination = rest[i];
+    else if (!rest[i].startsWith('--')) positionals.push(rest[i]);
     else throw new Error(`unknown argument: ${rest[i]}`);
   }
-  if (!destination) throw new Error('usage: toolkit download <destination> [--cache PATH]');
-  const relativeCache = relative(root, resolve(cache));
-  if (!relativeCache || (relativeCache !== '..' && !relativeCache.startsWith(`..${sep}`) && !isAbsolute(relativeCache))) {
-    throw new Error('cache must be outside the repository');
+  const [destination, sourcePath] = positionals;
+  if (!destination || positionals.length !== (command === 'import' ? 2 : 1)) throw new Error(command === 'import'
+    ? 'usage: toolkit import <destination> <file> [--cache PATH]'
+    : 'usage: toolkit download <destination> [--cache PATH]');
+  assertExternalCache(resolve(root), resolve(cache));
+  const canonicalRoot = await realpath(root);
+  for (const path of [cache, join(cache, 'artifacts'), join(cache, 'temporary'), join(cache, 'index.json')]) {
+    assertExternalCache(canonicalRoot, await canonicalPath(path));
   }
   const selected = artifacts.find(item => item.destination === destination);
   if (!selected) throw new Error(`unknown artifact: ${destination}`);
   const locked = lock[destination];
   if (!locked) throw new Error(`no lock entry for ${destination}; run check-updates --write-lock first`);
+  if (command === 'import') {
+    const saved = await importToCache(destination, resolve(sourcePath), locked, cache, (received, total) => {
+      output(`${(received / 1048576).toFixed(1)} MiB / ${(total / 1048576).toFixed(1)} MiB`);
+    });
+    output(`${saved.reused ? 'Cached' : 'Imported'} ${destination}: ${saved.path} (expected SHA-256 verified)`);
+    return 0;
+  }
   const current = await resolveMetadata(selected.descriptor, fetcher);
   if (['filename', 'version', 'sha256', 'sizeBytes'].some(key => locked[key as keyof LockEntry] !== current[key as keyof ResolvedArtifact])) {
     throw new Error(`${destination} differs from the lock; run check-updates before downloading`);

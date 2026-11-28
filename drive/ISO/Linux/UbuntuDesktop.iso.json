@@ -1,0 +1,12 @@
+{
+  "name": "Ubuntu Desktop 26.04 LTS",
+  "description": "Official Ubuntu Desktop 26.04 LTS amd64 image",
+  "productUrl": "https://ubuntu.com/download/desktop",
+  "source": {
+    "provider": "checksum-index",
+    "baseUrl": "https://releases.ubuntu.com/26.04/",
+    "checksumFile": "SHA256SUMS",
+    "assetPattern": "^ubuntu-(26\\.04(?:\\.\\d+)?)-desktop-amd64\\.iso$"
+  },
+  "profiles": ["standard", "full"]
+}

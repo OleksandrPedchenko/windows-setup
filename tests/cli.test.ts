@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { access, mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { access, mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -71,5 +71,35 @@ test('locked direct artifact downloads to cache without writing into drive', asy
     await assert.rejects(access(join(root, 'drive', destination)));
     await writeFile(join(root, 'drive', `${destination}.json`), JSON.stringify({ name: 'Example', source: { provider: 'direct', url: 'https://example.org/Example.iso', version: '2', sha256, sizeBytes: bytes.length } }));
     await assert.rejects(main(['download', destination, '--cache', cache], { root, fetcher: async () => new Response(bytes) }), /differs from the lock/);
+  } finally { await rm(root, { recursive: true, force: true }); await rm(cache, { recursive: true, force: true }); }
+});
+
+test('import uses the locked checksum without a network request', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'toolkit-cli-'));
+  const cache = await mkdtemp(join(tmpdir(), 'toolkit-cache-'));
+  const source = join(root, 'local.iso');
+  const destination = 'ISO/Windows/Windows11.iso';
+  const bytes = Buffer.from('local Windows ISO fixture');
+  const sha256 = createHash('sha256').update(bytes).digest('hex');
+  try {
+    await mkdir(join(root, 'drive', 'ISO', 'Windows'), { recursive: true });
+    await writeFile(join(root, 'drive', `${destination}.json`), JSON.stringify({ name: 'Windows 11', source: { provider: 'manual' } }));
+    await writeFile(source, bytes);
+    await writeLock(join(root, 'toolkit.lock.json'), { [destination]: { filename: 'Windows11.iso', sha256, sizeBytes: bytes.length } });
+    const lines: string[] = [];
+    await assert.rejects(main(['import', destination, source, '--cache', join(root, 'cache')], { root }), /outside the repository/);
+    const linkedCache = join(cache, 'linked-cache');
+    await symlink(root, linkedCache, process.platform === 'win32' ? 'junction' : 'dir');
+    await assert.rejects(main(['import', destination, source, '--cache', linkedCache], { root }), /outside the repository/);
+    await assert.rejects(access(join(root, 'artifacts')));
+    const linkedArtifacts = join(cache, 'artifacts');
+    await symlink(root, linkedArtifacts, process.platform === 'win32' ? 'junction' : 'dir');
+    await assert.rejects(main(['import', destination, source, '--cache', cache], { root }), /outside the repository/);
+    await rm(linkedArtifacts);
+    assert.equal(await main(['import', destination, source, '--cache', cache], { root, output: line => lines.push(line), fetcher: async () => { throw new Error('network used'); } }), 0);
+    assert.match(lines.join('\n'), /expected SHA-256 verified/);
+    await assert.rejects(access(join(root, 'drive', destination)));
+    await writeLock(join(root, 'toolkit.lock.json'), {});
+    await assert.rejects(main(['import', destination, source, '--cache', cache], { root }), /no lock entry/);
   } finally { await rm(root, { recursive: true, force: true }); await rm(cache, { recursive: true, force: true }); }
 });

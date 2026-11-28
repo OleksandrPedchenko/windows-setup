@@ -28,11 +28,11 @@ The Phase 1 completion check is: a descriptor can be discovered, its upstream me
 - **Update identity:** compare official SHA-256 first. A version string alone cannot prove the image is unchanged. Report weaker signals separately and never call provider failure “up to date.”
 - **Cache identity:** key by verified content checksum when available; retain the destination-path and lock relationship separately. Keep older verified files when a new download fails.
 - **Lock semantics:** the lock is resolved upstream metadata in Git, not the installed state of any USB drive.
-- **Microsoft:** the provider now registers a session and has obtained live official Windows 10/11 x64 links on macOS, but Microsoft also intermittently rejects fresh sessions. Find a dependable official link flow before promising unattended downloads. Add a verified local import command as an optional fallback.
+- **Microsoft:** the provider now registers a session and has obtained live official Windows 10/11 x64 links on macOS, but Microsoft also intermittently rejects fresh sessions. Find a dependable official link flow before promising unattended downloads. Phase 2 adds a verified local import fallback.
 
 ## Later phases
 
-- **Phase 2:** add manual imports and other specialized providers, and broaden the collection of verified descriptors.
+- **Phase 2 (in progress):** add verified local imports and broaden the official collection with Debian, Ubuntu LTS, and Proxmox Backup Server. Add specialized providers only when a verified source requires one. See [Phase 2 design](phase2-design.md).
 - **Phase 3:** local build output, optional profiles, storage planning, safe USB sync, per-drive installed state, and verification. Never format a USB or delete unrelated files by default.
 - **Phase 4:** Ventoy configuration generated only for selected artifacts, with a clear boundary between generated and manually maintained sections. Verify Ventoy keys against official documentation.
 - **Phase 5:** homelab scheduling, update PRs, notifications, and optional boot testing. Keep the CLI independent of any scheduler.
