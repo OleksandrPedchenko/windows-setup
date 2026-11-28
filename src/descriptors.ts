@@ -5,6 +5,7 @@ export type Source =
   | { provider: 'direct'; url: string; version?: string; sha256?: string; sizeBytes?: number }
   | { provider: 'github-release'; repository: string; release: string; assetPattern: string }
   | { provider: 'checksum-index'; baseUrl: string; checksumFile: string; assetPattern: string; release?: string }
+  | { provider: 'microsoft'; product: 'windows10' | 'windows11'; language: 'en-US'; architecture: 'x64' }
   | { provider: 'manual'; url?: string };
 
 export interface Descriptor {
@@ -89,6 +90,12 @@ export function parseDescriptor(value: unknown): Descriptor {
     knownFields(source, ['provider', 'url'], 'source');
     parsedSource = { provider };
     if (source.url !== undefined) parsedSource.url = https(source.url, 'source.url');
+  } else if (provider === 'microsoft') {
+    knownFields(source, ['provider', 'product', 'language', 'architecture'], 'source');
+    if (source.product !== 'windows10' && source.product !== 'windows11') throw new Error('source.product must be windows10 or windows11');
+    if (source.language !== 'en-US') throw new Error('source.language currently supports en-US only');
+    if (source.architecture !== 'x64') throw new Error('source.architecture currently supports x64 only');
+    parsedSource = { provider, product: source.product, language: 'en-US', architecture: 'x64' };
   } else throw new Error(`unsupported provider: ${provider}`);
 
   const descriptor: Descriptor = { name: nonempty(raw.name, 'name'), source: parsedSource };

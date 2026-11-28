@@ -28,11 +28,11 @@ The Phase 1 completion check is: a descriptor can be discovered, its upstream me
 - **Update identity:** compare official SHA-256 first. A version string alone cannot prove the image is unchanged. Report weaker signals separately and never call provider failure “up to date.”
 - **Cache identity:** key by verified content checksum when available; retain the destination-path and lock relationship separately. Keep older verified files when a new download fails.
 - **Lock semantics:** the lock is resolved upstream metadata in Git, not the installed state of any USB drive.
-- **Microsoft:** research documented official mechanisms before implementing this provider. Keep it out of Phase 1 if reliable automation cannot be verified; a manual descriptor is acceptable.
+- **Microsoft:** the provider reads official page metadata and attempts official link generation. Microsoft's Sentinel service currently rejects requests from this environment, so investigate a reliable supported download flow or add a verified local import command. Keep the official page fallback.
 
 ## Later phases
 
-- **Phase 2:** Microsoft and other specialized providers, manual imports, and a broader collection of verified descriptors.
+- **Phase 2:** improve Microsoft link reliability, add manual imports and other specialized providers, and broaden the collection of verified descriptors.
 - **Phase 3:** local build output, optional profiles, storage planning, safe USB sync, per-drive installed state, and verification. Never format a USB or delete unrelated files by default.
 - **Phase 4:** Ventoy configuration generated only for selected artifacts, with a clear boundary between generated and manually maintained sections. Verify Ventoy keys against official documentation.
 - **Phase 5:** homelab scheduling, update PRs, notifications, and optional boot testing. Keep the CLI independent of any scheduler.

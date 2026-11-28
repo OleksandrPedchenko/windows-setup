@@ -13,6 +13,7 @@ Supported sources:
 | `direct` | `url` | Uses an HTTPS download URL. Optional `version`, `sha256`, `sizeBytes` supply metadata. |
 | `github-release` | `repository`, `release`, `assetPattern` | Resolves one asset from GitHub's latest release or a tag. Uses GitHub's SHA-256 asset digest when supplied. |
 | `checksum-index` | `baseUrl`, `checksumFile`, `assetPattern` | Parses SHA-256 lines, selects the highest matching version using numeric collation. Optional `release` pins a captured version. The first regex capture is the version. |
+| `microsoft` | `product`, `language`, `architecture` | Reads the current release and English x64 SHA-256 from Microsoft's official Windows page. `product` is `windows10` or `windows11`; currently only `en-US` and `x64` are supported. On download, requests a fresh official ISO link. |
 | `manual` | none | Reports that the file requires manual action. Optional `url` points to official instructions. |
 
 For example:
@@ -41,7 +42,7 @@ Patterns should select exactly one asset and exclude unwanted architectures or v
 
 - [Proxmox official ISO directory](https://download.proxmox.com/iso/) publishes `SHA256SUMS` and ISO signatures. This implementation uses the HTTPS checksum index; it does not verify the index's OpenPGP signature.
 - [Rescuezilla official releases](https://github.com/rescuezilla/rescuezilla/releases) publish multiple ISO variants and GitHub asset SHA-256 digests. The descriptor selects the 64-bit Resolute variant explicitly.
-- [Microsoft Windows 11](https://www.microsoft.com/en-us/software-download/windows11) and [Windows 10](https://www.microsoft.com/en-us/software-download/windows10ISO) provide manual download paths. Temporary Microsoft URLs are not locked or automated here.
+- [Microsoft Windows 11](https://www.microsoft.com/en-us/software-download/windows11) and [Windows 10](https://www.microsoft.com/en-us/software-download/windows10ISO) publish current release names and SHA-256 checksums. The provider reads these without downloading an ISO, then requests a temporary link only when `download` runs. Microsoft's site uses a request flow that can reject automation. If link generation fails, download from the official page manually and compare its SHA-256 with `toolkit.lock.json`. Temporary links are never locked.
 - [SuperISOUpdater](https://github.com/JoshuaVandaele/SuperISOUpdater) covers many ISO sources and is GPL-2.0-or-later. [Fido](https://github.com/pbatard/Fido) automates Microsoft links and is GPL-3.0-or-later. [multi-boot-usb](https://github.com/asudbring/multi-boot-usb) organizes USB content without a declared GitHub license. [ventoy-multiboot-toolkit](https://github.com/rngauf/ventoy-multiboot-toolkit) is MIT licensed. These were reviewed for approach; no code or runtime dependency was copied.
 
 ## Limits

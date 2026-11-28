@@ -20,7 +20,7 @@ npm run toolkit -- download ISO/Servers/Proxmox.iso
 
 `check-updates` is read-only unless `--write-lock` is given. It reads only metadata and never downloads an ISO. `download` requires a matching lock entry, resolves the source again, and places the file in a cache outside Git. Set `VENTOY_TOOLKIT_CACHE` or pass `--cache PATH` to choose the cache. The default is `~/.cache/ventoy-toolkit` on macOS/Linux and `%LOCALAPPDATA%\ventoy-toolkit` on Windows. Large downloads stream to temporary `.part` files and are promoted only after size and SHA-256 checks. There is no resume support yet.
 
-The current descriptors are Proxmox VE (official checksum index), Rescuezilla (GitHub release digest), and manual Windows 10/11 entries. The Windows entries cannot be downloaded by this CLI yet. No command currently builds or synchronizes a USB drive. See the [toolkit guide](docs/toolkit.md) for descriptor format, provider behavior, lock semantics, and limitations. The repository is available under the [MIT license](LICENSE).
+The current descriptors are Proxmox VE (official checksum index), Rescuezilla (GitHub release digest), and Windows 10/11 English x64 (official Microsoft pages and download service). Windows metadata checks are automatic. `download` requests a fresh Microsoft ISO link, but Microsoft may reject automated link generation; in that case the CLI prints the official page for manual download. No command currently builds or synchronizes a USB drive. See the [toolkit guide](docs/toolkit.md) for descriptor format, provider behavior, lock semantics, and limitations. The repository is available under the [MIT license](LICENSE).
 
 ## Requirements
 

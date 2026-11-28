@@ -1,4 +1,5 @@
 import type { Descriptor } from './descriptors.js';
+import { microsoftDownloadUrl, microsoftMetadata } from './microsoft.js';
 
 export interface ResolvedArtifact {
   filename: string;
@@ -52,6 +53,7 @@ async function request(url: string, fetcher: typeof fetch): Promise<Response> {
 export async function resolveMetadata(descriptor: Descriptor, fetcher: typeof fetch = fetch): Promise<ResolvedArtifact> {
   const source = descriptor.source;
   if (source.provider === 'manual') throw new ManualSourceError(`${descriptor.name} requires manual download`);
+  if (source.provider === 'microsoft') return microsoftMetadata(source, fetcher);
   if (source.provider === 'direct') {
     const url = httpsUrl(source.url);
     return {
@@ -100,4 +102,11 @@ export async function resolveMetadata(descriptor: Descriptor, fetcher: typeof fe
     throw new Error(`multiple assets share release ${selected.version || selected.filename}`);
   }
   return { ...selected, downloadUrl: new URL(encodeURIComponent(selected.filename), base).href };
+}
+
+export async function resolveDownloadUrl(descriptor: Descriptor, fetcher: typeof fetch = fetch): Promise<string> {
+  if (descriptor.source.provider === 'microsoft') return microsoftDownloadUrl(descriptor.source, fetcher);
+  const metadata = await resolveMetadata(descriptor, fetcher);
+  if (!metadata.downloadUrl) throw new Error('source has no download URL');
+  return metadata.downloadUrl;
 }

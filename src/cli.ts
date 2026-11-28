@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { downloadToCache, defaultCacheRoot } from './cache.js';
 import { discover } from './descriptors.js';
 import { compare, readLock, writeLock, type LockEntry } from './lock.js';
-import { ManualSourceError, resolveMetadata, type ResolvedArtifact } from './providers.js';
+import { ManualSourceError, resolveDownloadUrl, resolveMetadata, type ResolvedArtifact } from './providers.js';
 
 interface Options {
   root?: string;
@@ -98,6 +98,7 @@ export async function main(args: string[], options: Options = {}): Promise<numbe
   if (['filename', 'version', 'sha256', 'sizeBytes'].some(key => locked[key as keyof LockEntry] !== current[key as keyof ResolvedArtifact])) {
     throw new Error(`${destination} differs from the lock; run check-updates before downloading`);
   }
+  current.downloadUrl ||= await resolveDownloadUrl(selected.descriptor, fetcher);
   const saved = await downloadToCache(destination, current, cache, fetcher, (received, total) => {
     output(`${(received / 1048576).toFixed(1)} MiB${total ? ` / ${(total / 1048576).toFixed(1)} MiB` : ''}`);
   });

@@ -11,6 +11,16 @@
       "filename": "proxmox-ve_9.3-1.iso",
       "version": "9.3-1",
       "sha256": "cc4fc97b9ac3a5712ad5b665195753571923a18e11f5c2ebb113fdc29a50bd36"
+    },
+    "ISO/Windows/Windows10.iso": {
+      "filename": "Windows10-English-x64.iso",
+      "version": "22H2",
+      "sha256": "a6f470ca6d331eb353b815c043e327a347f594f37ff525f17764738fe812852e"
+    },
+    "ISO/Windows/Windows11.iso": {
+      "filename": "Windows11-English-x64.iso",
+      "version": "26H2",
+      "sha256": "bd4307df32bc8af33b39ccecb1174aeb345386630f89a2b86c7a4e36b55ea650"
     }
   }
 }
