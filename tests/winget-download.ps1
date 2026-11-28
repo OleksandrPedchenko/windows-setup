@@ -4,7 +4,7 @@ $work = Join-Path ([System.IO.Path]::GetTempPath()) ([guid]::NewGuid().ToString(
 $destination = Join-Path $work 'installers'
 $null = New-Item -ItemType Directory -Path $destination -Force
 $configPath = Join-Path $work 'packages.json'
-Copy-Item -LiteralPath (Join-Path $root 'download.ps1') -Destination (Join-Path $work 'download.ps1')
+Copy-Item -LiteralPath (Join-Path $root 'drive/Tools/Scripts/download.ps1') -Destination (Join-Path $work 'download.ps1')
 @{ packages = @(@{ name = 'Example app'; source = 'winget'; id = 'Example.App'; architecture = 'x86'; installerType = 'nullsoft' }) } |
     ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $configPath
 Set-Content -LiteralPath (Join-Path $destination 'existing.yaml') -Value 'keep me'

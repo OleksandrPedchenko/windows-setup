@@ -27,3 +27,6 @@ jobs:
       - name: Test interactive package selection
         shell: pwsh
         run: ./tests/package-selection.ps1
+      - name: Test remote invocation paths
+        shell: pwsh
+        run: ./tests/remote-invocation.ps1

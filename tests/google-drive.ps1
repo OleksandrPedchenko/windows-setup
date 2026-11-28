@@ -11,7 +11,7 @@ $socket.Start()
 $port = $socket.LocalEndpoint.Port
 $socket.Stop()
 $url = "http://127.0.0.1:$port/Example.iso"
-$scriptText = Get-Content -LiteralPath (Join-Path $root 'download.ps1') -Raw
+$scriptText = Get-Content -LiteralPath (Join-Path $root 'drive/Tools/Scripts/download.ps1') -Raw
 $scriptText = $scriptText.Replace('https://drive.usercontent.google.com/download?id=$($package.id)&export=download&confirm=t', $url)
 Set-Content -LiteralPath $scriptPath -Value $scriptText
 @{

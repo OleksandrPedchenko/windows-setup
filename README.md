@@ -2,6 +2,8 @@
 
 A small, configuration-driven PowerShell utility that downloads Windows application installers through WinGet, µTorrent Classic from its publisher, and optional ISO files from Google Drive. It does not install applications.
 
+The repository now uses `drive/` as the future Ventoy USB content tree. The existing downloader lives in `drive/Tools/Scripts/`; the proposed TypeScript toolkit is tracked in [next steps](docs/next-steps.md) and has not been implemented. The original [project brief](docs/ventoy-toolkit-brief.md) is saved for later work.
+
 ## Requirements
 
 - Windows with Windows PowerShell 5.1 or later.
@@ -13,12 +15,12 @@ A small, configuration-driven PowerShell utility that downloads Windows applicat
 From a local copy of this repository:
 
 ```powershell
-powershell.exe -NoProfile -File .\download.ps1
-powershell.exe -NoProfile -File .\download.ps1 -Destination 'C:\Installers' -Architecture arm64
-powershell.exe -NoProfile -File .\download.ps1 -CheckOnly
+powershell.exe -NoProfile -File .\drive\Tools\Scripts\download.ps1
+powershell.exe -NoProfile -File .\drive\Tools\Scripts\download.ps1 -Destination 'C:\Installers' -Architecture arm64
+powershell.exe -NoProfile -File .\drive\Tools\Scripts\download.ps1 -CheckOnly
 ```
 
-The default destination is `downloads` beside the script. The default architecture is `x64`; accepted values are `x86`, `x64`, `arm`, and `arm64`. Use `-ConfigPath` to supply another JSON file. The script prints each successful version and a final table of package names, versions, filenames, statuses, and average download speeds. It continues after individual failures and exits with code 1 if any package fails.
+The default destination is `downloads` beside the script (`drive/Tools/Scripts/downloads` in a local clone). The default architecture is `x64`; accepted values are `x86`, `x64`, `arm`, and `arm64`. Use `-ConfigPath` to supply another JSON file. The script prints each successful version and a final table of package names, versions, filenames, statuses, and average download speeds. It continues after individual failures and exits with code 1 if any package fails.
 
 Direct downloads (the ISO and uTorrent Classic) show live transfer speed in MiB/s while downloading. WinGet shows its own download progress; the summary calculates average speed from the downloaded installer size and transfer time. Preview mode does not show a speed.
 
@@ -27,17 +29,17 @@ Direct downloads (the ISO and uTorrent Classic) show live transfer speed in MiB/
 To run directly from the public repository in a Windows PowerShell console, without cloning or saving the files yourself:
 
 ```powershell
-irm 'https://raw.githubusercontent.com/OleksandrPedchenko/windows-setup/main/download.ps1' -UseBasicParsing | iex
+irm 'https://raw.githubusercontent.com/OleksandrPedchenko/windows-setup/main/drive/Tools/Scripts/download.ps1' -UseBasicParsing | iex
 ```
 
-This fetches the public `packages.json` and encrypted `packages.encrypted.json` from the same repository. The script asks for a passphrase: enter it to include the private ISO, or press Enter to download only the public packages. Installers go to `downloads` in the current directory.
+This fetches the public `drive/Tools/Scripts/packages.json` and encrypted `drive/Tools/Scripts/packages.encrypted.json` from the same repository. The script asks for a passphrase: enter it to include the private ISO, or press Enter to download only the public packages. Installers go to `downloads` in the current directory.
 
 After the passphrase prompt, the script shows a numbered list of available packages. Enter numbers separated by commas (for example, `1,3`) to download or preview only those packages. Press Enter to select all listed packages. The private ISO appears in the list only if you entered its passphrase. Invalid numbers stop the run before any downloads.
 
 To pass flags, fetch the same script into a variable and invoke it as a script block. For example, run the first line, then choose **one** of the commands below:
 
 ```powershell
-$setup = irm 'https://raw.githubusercontent.com/OleksandrPedchenko/windows-setup/main/download.ps1' -UseBasicParsing
+$setup = irm 'https://raw.githubusercontent.com/OleksandrPedchenko/windows-setup/main/drive/Tools/Scripts/download.ps1' -UseBasicParsing
 & ([scriptblock]::Create($setup)) -CheckOnly
 & ([scriptblock]::Create($setup)) -Destination 'C:\Installers'
 & ([scriptblock]::Create($setup)) -Destination 'C:\Installers' -Architecture arm64 -CheckOnly
@@ -45,11 +47,11 @@ $setup = irm 'https://raw.githubusercontent.com/OleksandrPedchenko/windows-setup
 
 `-CheckOnly` shows the versions and files without downloading. The passphrase prompt appears in both preview and download modes. Plain `iex` runs with default settings; use the script block form for parameters.
 
-Inspect the [script](https://github.com/OleksandrPedchenko/windows-setup/blob/main/download.ps1) before using `iex`: it executes remote code immediately. For a reproducible version, download both files from a specific commit and run the local script.
+Inspect the [script](https://github.com/OleksandrPedchenko/windows-setup/blob/main/drive/Tools/Scripts/download.ps1) before using `iex`: it executes remote code immediately. For a reproducible version, download both files from a specific commit and run the local script.
 
 ## Configuration
 
-Edit the public `packages.json` to add or remove WinGet packages:
+Edit the public `drive/Tools/Scripts/packages.json` to add or remove WinGet packages:
 
 ```json
 {
@@ -59,7 +61,7 @@ Edit the public `packages.json` to add or remove WinGet packages:
 }
 ```
 
-Keep the Drive entry in the ignored `packages.local.json`:
+Keep the Drive entry in the ignored `drive/Tools/Scripts/packages.local.json`:
 
 ```json
 {
@@ -88,13 +90,13 @@ A Google Drive entry points to a **single file ID**, not its parent folder. The 
 To create a portable encrypted configuration from your ignored local file, run this on your own machine. The script prompts twice for a passphrase; do not place it in a command or send it to anyone:
 
 ```powershell
-powershell.exe -NoProfile -File .\download.ps1 -EncryptConfig -ConfigPath .\packages.local.json -EncryptedConfigPath .\packages.encrypted.json
+powershell.exe -NoProfile -File .\drive\Tools\Scripts\download.ps1 -EncryptConfig -ConfigPath .\drive\Tools\Scripts\packages.local.json -EncryptedConfigPath .\drive\Tools\Scripts\packages.encrypted.json
 ```
 
-Put `packages.encrypted.json` beside `download.ps1`, then run the script normally. Enter your passphrase to download the public WinGet packages **and** the private ISO, or press Enter to download only the public packages:
+Put `drive/Tools/Scripts/packages.encrypted.json` beside `download.ps1`, then run the script normally. Enter your passphrase to download the public WinGet packages **and** the private ISO, or press Enter to download only the public packages:
 
 ```powershell
-powershell.exe -NoProfile -File .\download.ps1 -Destination 'C:\Installers'
+powershell.exe -NoProfile -File .\drive\Tools\Scripts\download.ps1 -Destination 'C:\Installers'
 ```
 
 The encrypted file is published beside the script so the remote one-liner offers the same choice. Use `-EncryptedConfigPath` if the encrypted file is elsewhere. A wrong passphrase stops the run before any download. Encryption uses PowerShell's AES secure-string format with a random salt, 600,000 PBKDF2 iterations, and an HMAC check for tampering. Anyone with the encrypted file can try passphrases offline. This protects the file ID in the configuration; it does not change Google Drive's sharing permissions or invalidate any previously exposed link.

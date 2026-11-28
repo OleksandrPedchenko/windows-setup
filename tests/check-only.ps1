@@ -4,7 +4,7 @@ $work = Join-Path ([System.IO.Path]::GetTempPath()) ([guid]::NewGuid().ToString(
 $null = New-Item -ItemType Directory -Path $work
 $configPath = Join-Path $work 'packages.json'
 $destination = Join-Path $work 'output'
-Copy-Item -LiteralPath (Join-Path $root 'download.ps1') -Destination (Join-Path $work 'download.ps1')
+Copy-Item -LiteralPath (Join-Path $root 'drive/Tools/Scripts/download.ps1') -Destination (Join-Path $work 'download.ps1')
 @{
     packages = @(
         @{ name = 'Public app'; source = 'winget'; id = 'Example.Public' },

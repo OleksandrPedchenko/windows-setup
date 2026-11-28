@@ -3,7 +3,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$scripts = @('download.ps1', 'validate.ps1', 'tests/google-drive.ps1', 'tests/encrypted-config.ps1', 'tests/check-only.ps1', 'tests/winget-download.ps1', 'tests/package-selection.ps1')
+$scripts = @('drive/Tools/Scripts/download.ps1', 'validate.ps1', 'tests/google-drive.ps1', 'tests/encrypted-config.ps1', 'tests/check-only.ps1', 'tests/winget-download.ps1', 'tests/package-selection.ps1', 'tests/remote-invocation.ps1')
 $failed = $false
 
 foreach ($name in $scripts) {
@@ -24,7 +24,7 @@ foreach ($name in $scripts) {
     }
 }
 
-$configPath = Join-Path $ProjectRoot 'packages.json'
+$configPath = Join-Path $ProjectRoot 'drive/Tools/Scripts/packages.json'
 try {
     $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
     if (-not $config.packages -or @($config.packages).Count -eq 0) {
@@ -47,7 +47,7 @@ try {
             throw 'Google Drive packages need filename and version'
         }
     }
-    Write-Host 'JSON OK: packages.json'
+    Write-Host 'JSON OK: drive/Tools/Scripts/packages.json'
 } catch {
     Write-Error "Invalid packages.json: $_" -ErrorAction Continue
     $failed = $true
