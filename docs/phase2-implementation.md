@@ -48,5 +48,5 @@
 ### Task 3: Stacked PR
 
 - [x] Review the diff and run `git diff --check`.
-- [ ] Push `codex/ventoy-phase2` and open a PR targeting `codex/ventoy-phase1`.
-- [ ] Wait for macOS, Linux, and Windows CI checks.
+- [x] Push `codex/ventoy-phase2` and open a PR targeting `codex/ventoy-phase1`.
+- [x] Wait for macOS, Linux, and Windows CI checks.
