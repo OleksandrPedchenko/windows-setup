@@ -1,12 +1,13 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
-import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import type { ReadableStream } from 'node:stream/web';
 import { fetchHttps, type ResolvedArtifact } from './providers.js';
+import type { LockEntry } from './lock.js';
 
 export interface CachedArtifact {
   path: string;
@@ -86,5 +87,42 @@ export async function downloadToCache(destination: string, artifact: ResolvedArt
       finally { await rm(indexTemporary, { force: true }); }
     }
     return { path, sha256: actual, verifiedAgainstUpstream: !!artifact.sha256, reused: false };
+  } finally { await rm(partial, { force: true }); }
+}
+
+export async function importToCache(destination: string, source: string, locked: LockEntry, cacheRoot: string = defaultCacheRoot(), onProgress?: (received: number, total: number) => void): Promise<CachedArtifact> {
+  if (!locked.sha256) throw new Error(`${destination} has no official SHA-256 in the lock`);
+  const input = await lstat(source);
+  if (!input.isFile()) throw new Error('import source must be a regular file, not a symlink or directory');
+  const artifacts = join(cacheRoot, 'artifacts');
+  const temporary = join(cacheRoot, 'temporary');
+  await mkdir(artifacts, { recursive: true });
+  await mkdir(temporary, { recursive: true });
+  const partial = join(temporary, `${randomUUID()}.part`);
+  const hash = createHash('sha256');
+  let size = 0;
+  let lastProgress = Date.now();
+  try {
+    await pipeline(
+      createReadStream(source),
+      new Transform({ transform(chunk: Buffer, _encoding, callback) {
+        hash.update(chunk);
+        size += chunk.length;
+        if (onProgress && Date.now() - lastProgress >= 2000) { onProgress(size, input.size); lastProgress = Date.now(); }
+        callback(null, chunk);
+      } }),
+      createWriteStream(partial, { flags: 'wx' }),
+    );
+    onProgress?.(size, input.size);
+    if (!size) throw new Error('empty import');
+    if (locked.sizeBytes && size !== locked.sizeBytes) throw new Error(`size mismatch: expected ${locked.sizeBytes}, got ${size}`);
+    const actual = hash.digest('hex');
+    if (actual !== locked.sha256) throw new Error(`checksum mismatch for ${destination}`);
+    const path = join(artifacts, actual);
+    try {
+      if ((await stat(path)).size === size && await fileHash(path) === actual) return { path, sha256: actual, verifiedAgainstUpstream: true, reused: true };
+    } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+    await rename(partial, path);
+    return { path, sha256: actual, verifiedAgainstUpstream: true, reused: false };
   } finally { await rm(partial, { force: true }); }
 }

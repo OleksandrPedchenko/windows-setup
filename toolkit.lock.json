@@ -1,6 +1,16 @@
 {
   "schemaVersion": 1,
   "artifacts": {
+    "ISO/Linux/Debian.iso": {
+      "filename": "debian-13.8.0-amd64-netinst.iso",
+      "version": "13.8.0",
+      "sha256": "3770c7a54890f7574a68a8b402e553806a81d6bccfb379554caad3a9a857931e"
+    },
+    "ISO/Linux/UbuntuDesktop.iso": {
+      "filename": "ubuntu-26.04.1-desktop-amd64.iso",
+      "version": "26.04.1",
+      "sha256": "601e30fbf5d97759367c632e2c33630665039b7e2158fd068403da3ccf1bda1f"
+    },
     "ISO/Recovery/Rescuezilla.iso": {
       "filename": "rescuezilla-2.6.2-64bit.resolute.iso",
       "version": "2.6.2",
@@ -11,6 +21,11 @@
       "filename": "proxmox-ve_9.3-1.iso",
       "version": "9.3-1",
       "sha256": "cc4fc97b9ac3a5712ad5b665195753571923a18e11f5c2ebb113fdc29a50bd36"
+    },
+    "ISO/Servers/ProxmoxBackupServer.iso": {
+      "filename": "proxmox-backup-server_4.2-1.iso",
+      "version": "4.2-1",
+      "sha256": "2fb299deac3929253712c9c3dfc9237edbe70af83c8848467616b771a1d5453e"
     },
     "ISO/Windows/Windows10.iso": {
       "filename": "Windows10-English-x64.iso",

@@ -1,0 +1,12 @@
+{
+  "name": "Proxmox Backup Server",
+  "description": "Official x86-64 Proxmox Backup Server installer",
+  "productUrl": "https://www.proxmox.com/en/products/proxmox-backup-server/overview",
+  "source": {
+    "provider": "checksum-index",
+    "baseUrl": "https://download.proxmox.com/iso/",
+    "checksumFile": "SHA256SUMS",
+    "assetPattern": "^proxmox-backup-server_(\\d+\\.\\d+-\\d+)\\.iso$"
+  },
+  "profiles": ["standard", "full"]
+}

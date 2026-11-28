@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { downloadToCache } from '../src/cache.js';
+import { downloadToCache, importToCache } from '../src/cache.js';
 
 test('verified download is reused; failed replacement keeps the old artifact', async () => {
   const root = await mkdtemp(join(tmpdir(), 'toolkit-cache-'));
@@ -25,6 +25,32 @@ test('verified download is reused; failed replacement keeps the old artifact', a
     await assert.rejects(downloadToCache('ISO/example.iso', { ...artifact, sha256: 'f'.repeat(64) }, root, fetcher), /checksum mismatch/);
     assert.equal(await readFile(first.path, 'utf8'), 'small fixture');
     await assert.rejects(downloadToCache('ISO/empty.iso', { filename: 'empty.iso', downloadUrl: 'https://example.org/empty.iso' }, root, async () => new Response('')), /empty download/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('local import verifies copied bytes and preserves a good cache on failure', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'toolkit-cache-'));
+  const source = join(root, 'source.iso');
+  const bytes = Buffer.from('local ISO fixture');
+  const sha256 = createHash('sha256').update(bytes).digest('hex');
+  try {
+    await writeFile(source, bytes);
+    const locked = { filename: 'upstream.iso', sha256, sizeBytes: bytes.length };
+    const progress: number[] = [];
+    const first = await importToCache('ISO/example.iso', source, locked, root, received => progress.push(received));
+    assert.equal(first.reused, false);
+    assert.equal(progress.at(-1), bytes.length);
+    assert.equal(first.verifiedAgainstUpstream, true);
+    assert.deepEqual(await readFile(first.path), bytes);
+    const second = await importToCache('ISO/example.iso', source, locked, root);
+    assert.equal(second.reused, true);
+    await writeFile(source, 'wrong contents');
+    await assert.rejects(importToCache('ISO/example.iso', source, locked, root), /size mismatch|checksum mismatch/);
+    assert.deepEqual(await readFile(first.path), bytes);
+    await assert.rejects(importToCache('ISO/example.iso', source, { filename: 'upstream.iso' }, root), /official SHA-256/);
+    const link = join(root, 'link.iso');
+    await symlink(source, link);
+    await assert.rejects(importToCache('ISO/example.iso', link, locked, root), /regular file/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 

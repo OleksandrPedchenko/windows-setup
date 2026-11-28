@@ -4,7 +4,7 @@ This repository contains a Ventoy artifact toolkit and a configuration-driven Po
 
 The repository uses `drive/` as the future Ventoy USB content tree. The existing downloader lives in `drive/Tools/Scripts/`. A separate TypeScript toolkit now discovers artifact descriptors, checks upstream metadata, and downloads verified files into a local cache. USB build and sync are planned in [next steps](docs/next-steps.md). The original [project brief](docs/ventoy-toolkit-brief.md) is saved for reference.
 
-## Ventoy toolkit (Phase 1)
+## Ventoy toolkit
 
 Requires Node.js 22 or later. From the repository root:
 
@@ -16,11 +16,12 @@ npm run toolkit -- check-updates
 npm run --silent toolkit -- check-updates --report json
 npm run toolkit -- check-updates --write-lock
 npm run toolkit -- download ISO/Servers/Proxmox.iso
+npm run toolkit -- import ISO/Windows/Windows11.iso ~/Downloads/Windows11.iso
 ```
 
-`check-updates` is read-only unless `--write-lock` is given. It reads only metadata and never downloads an ISO. `download` requires a matching lock entry, resolves the source again, and places the file in a cache outside Git. Set `VENTOY_TOOLKIT_CACHE` or pass `--cache PATH` to choose the cache. The default is `~/.cache/ventoy-toolkit` on macOS/Linux and `%LOCALAPPDATA%\ventoy-toolkit` on Windows. Large downloads stream to temporary `.part` files and are promoted only after size and SHA-256 checks. There is no resume support yet.
+`check-updates` is read-only unless `--write-lock` is given. It reads only metadata and never downloads an ISO. `download` requires a matching lock entry, resolves the source again, and places the file in a cache outside Git. `import` accepts a local ISO for a known destination with a locked official SHA-256; it checks the file and copies it into the same cache without a network request. Set `VENTOY_TOOLKIT_CACHE` or pass `--cache PATH` to choose the cache. The default is `~/.cache/ventoy-toolkit` on macOS/Linux and `%LOCALAPPDATA%\ventoy-toolkit` on Windows. Large files stream to temporary `.part` files and are promoted only after size and SHA-256 checks. There is no resume support yet.
 
-The current descriptors are Proxmox VE (official checksum index), Rescuezilla (GitHub release digest), and Windows 10/11 English x64 (official Microsoft pages and download service). Windows metadata checks run automatically on macOS; `download` obtains a fresh official ISO link and streams the ISO into the verified cache. Microsoft sometimes rejects link generation even after session registration, so an unattended download can still fail. No command currently builds or synchronizes a USB drive. See the [toolkit guide](docs/toolkit.md) for descriptor format, provider behavior, lock semantics, and limitations. The repository is available under the [MIT license](LICENSE).
+The descriptors include Debian netinst, Ubuntu Desktop LTS, Proxmox VE and Backup Server, Rescuezilla, and Windows 10/11 English x64. Windows metadata checks run automatically on macOS; `download` obtains a fresh official ISO link and streams the ISO into the verified cache. Microsoft sometimes rejects link generation even after session registration, so an unattended download can still fail; `import` provides a verified fallback for a browser-downloaded ISO. No command currently builds or synchronizes a USB drive. See the [toolkit guide](docs/toolkit.md) for descriptor format, provider behavior, lock semantics, and limitations. The repository is available under the [MIT license](LICENSE).
 
 ## Requirements
 
