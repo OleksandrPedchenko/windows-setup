@@ -12,3 +12,5 @@ packages.local.json
 *.tmp
 *.log
 .DS_Store
+node_modules/
+dist/

@@ -1,0 +1,12 @@
+{
+  "name": "Windows 10",
+  "description": "Official Windows 10 English x64 installation image",
+  "productUrl": "https://www.microsoft.com/en-us/software-download/windows10ISO",
+  "source": {
+    "provider": "microsoft",
+    "product": "windows10",
+    "language": "en-US",
+    "architecture": "x64"
+  },
+  "profiles": ["essential", "standard", "full"]
+}

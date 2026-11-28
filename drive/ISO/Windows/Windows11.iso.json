@@ -1,0 +1,12 @@
+{
+  "name": "Windows 11",
+  "description": "Official Windows 11 English x64 installation image",
+  "productUrl": "https://www.microsoft.com/en-us/software-download/windows11",
+  "source": {
+    "provider": "microsoft",
+    "product": "windows11",
+    "language": "en-US",
+    "architecture": "x64"
+  },
+  "profiles": ["essential", "standard", "full"]
+}

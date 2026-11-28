@@ -1,8 +1,26 @@
 # windows-setup
 
-A small, configuration-driven PowerShell utility that downloads Windows application installers through WinGet, µTorrent Classic from its publisher, and optional ISO files from Google Drive. It does not install applications.
+This repository contains a Ventoy artifact toolkit and a configuration-driven PowerShell utility for downloading Windows application installers. The PowerShell utility uses WinGet, µTorrent Classic's publisher, and optional Google Drive ISO files; it does not install applications.
 
-The repository now uses `drive/` as the future Ventoy USB content tree. The existing downloader lives in `drive/Tools/Scripts/`; the proposed TypeScript toolkit is tracked in [next steps](docs/next-steps.md) and has not been implemented. The original [project brief](docs/ventoy-toolkit-brief.md) is saved for later work.
+The repository uses `drive/` as the future Ventoy USB content tree. The existing downloader lives in `drive/Tools/Scripts/`. A separate TypeScript toolkit now discovers artifact descriptors, checks upstream metadata, and downloads verified files into a local cache. USB build and sync are planned in [next steps](docs/next-steps.md). The original [project brief](docs/ventoy-toolkit-brief.md) is saved for reference.
+
+## Ventoy toolkit (Phase 1)
+
+Requires Node.js 22 or later. From the repository root:
+
+```bash
+npm ci
+npm run toolkit -- validate
+npm run toolkit -- list
+npm run toolkit -- check-updates
+npm run --silent toolkit -- check-updates --report json
+npm run toolkit -- check-updates --write-lock
+npm run toolkit -- download ISO/Servers/Proxmox.iso
+```
+
+`check-updates` is read-only unless `--write-lock` is given. It reads only metadata and never downloads an ISO. `download` requires a matching lock entry, resolves the source again, and places the file in a cache outside Git. Set `VENTOY_TOOLKIT_CACHE` or pass `--cache PATH` to choose the cache. The default is `~/.cache/ventoy-toolkit` on macOS/Linux and `%LOCALAPPDATA%\ventoy-toolkit` on Windows. Large downloads stream to temporary `.part` files and are promoted only after size and SHA-256 checks. There is no resume support yet.
+
+The current descriptors are Proxmox VE (official checksum index), Rescuezilla (GitHub release digest), and Windows 10/11 English x64 (official Microsoft pages and download service). Windows metadata checks run automatically on macOS; `download` obtains a fresh official ISO link and streams the ISO into the verified cache. Microsoft sometimes rejects link generation even after session registration, so an unattended download can still fail. No command currently builds or synchronizes a USB drive. See the [toolkit guide](docs/toolkit.md) for descriptor format, provider behavior, lock semantics, and limitations. The repository is available under the [MIT license](LICENSE).
 
 ## Requirements
 
