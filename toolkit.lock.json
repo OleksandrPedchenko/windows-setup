@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "artifacts": {
+    "ISO/Recovery/Rescuezilla.iso": {
+      "filename": "rescuezilla-2.6.2-64bit.resolute.iso",
+      "version": "2.6.2",
+      "sha256": "20dfdad31d3da56b8dd3978159721f19071916f65e123003a850fdecec85ae3f",
+      "sizeBytes": 1722134528
+    },
+    "ISO/Servers/Proxmox.iso": {
+      "filename": "proxmox-ve_9.3-1.iso",
+      "version": "9.3-1",
+      "sha256": "cc4fc97b9ac3a5712ad5b665195753571923a18e11f5c2ebb113fdc29a50bd36"
+    }
+  }
+}

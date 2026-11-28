@@ -1,0 +1,12 @@
+{
+  "name": "Rescuezilla",
+  "description": "Official 64-bit Rescuezilla recovery image, Resolute variant",
+  "productUrl": "https://rescuezilla.com/download",
+  "source": {
+    "provider": "github-release",
+    "repository": "rescuezilla/rescuezilla",
+    "release": "latest",
+    "assetPattern": "^rescuezilla-.*-64bit\\.resolute\\.iso$"
+  },
+  "profiles": ["standard", "full"]
+}
