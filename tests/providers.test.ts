@@ -78,6 +78,9 @@ test('Microsoft link resolution rejects Sentinel errors with manual fallback', a
   const fetcher: typeof fetch = async input => {
     const url = String(input);
     if (url.includes('windows11')) return new Response('<option value="3813">Windows 11 (multi-edition ISO for x64 devices)</option>');
+    if (url.includes('vlscppe.microsoft.com/tags')) return new Response('registered');
+    if (url.includes('/mdt.js')) return new Response('window.dfp={url:"https://ov-df.microsoft.com/?w=ABC123"};src+="&rticks="+123456;');
+    if (url.startsWith('https://ov-df.microsoft.com/?')) return new Response('registered');
     if (url.includes('getskuinformation')) return new Response(JSON.stringify({ Skus: [{ Id: '27160', Language: 'English' }] }));
     return new Response(JSON.stringify({ Errors: [{ Key: 'ErrorSettings.SentinelReject' }] }));
   };
@@ -91,16 +94,23 @@ test('Microsoft link resolution accepts only official x64 ISO URL', async () => 
     const url = String(input);
     requests.push(url);
     if (url.includes('windows10ISO')) return new Response('<option value="2618">Windows 10 (multi-edition ISO)</option>');
+    if (url.includes('vlscppe.microsoft.com/tags')) return new Response('registered');
+    if (url.includes('/mdt.js')) return new Response('window.dfp={url:"https://ov-df.microsoft.com/?w=ABC123"};src+="&rticks="+123456;');
+    if (url.startsWith('https://ov-df.microsoft.com/?')) return new Response('registered');
     if (url.includes('getskuinformation')) return new Response(JSON.stringify({ Skus: [{ Id: '16067', Language: 'English' }] }));
-    return new Response(JSON.stringify({ ProductDownloadOptions: [{ DownloadType: '64-bit', Uri: 'https://software.download.prss.microsoft.com/db/Win10_22H2_English_x64.iso?token=short' }] }));
+    return new Response(JSON.stringify({ ProductDownloadOptions: [{ DownloadType: 1, Uri: 'https://software.download.prss.microsoft.com/db/Win10_22H2_English_x64.iso?token=short' }] }));
   };
   assert.match(await resolveDownloadUrl(source, fetcher), /Win10_22H2_English_x64\.iso/);
-  assert.equal(requests.length, 3);
+  assert.equal(requests.length, 6);
+  assert.match(requests[3], /rticks=123456/);
   const hostile: typeof fetch = async input => {
     const url = String(input);
     if (url.includes('windows10ISO')) return new Response('<option value="2618">Windows 10 (multi-edition ISO)</option>');
+    if (url.includes('vlscppe.microsoft.com/tags')) return new Response('registered');
+    if (url.includes('/mdt.js')) return new Response('window.dfp={url:"https://ov-df.microsoft.com/?w=ABC123"};src+="&rticks="+123456;');
+    if (url.startsWith('https://ov-df.microsoft.com/?')) return new Response('registered');
     if (url.includes('getskuinformation')) return new Response(JSON.stringify({ Skus: [{ Id: '16067', Language: 'English' }] }));
-    return new Response(JSON.stringify({ ProductDownloadOptions: [{ DownloadType: '64-bit', Uri: 'https://microsoft.com.evil.example/Win10.iso' }] }));
+    return new Response(JSON.stringify({ ProductDownloadOptions: [{ DownloadType: 1, Uri: 'https://microsoft.com.evil.example/Win10.iso' }] }));
   };
   await assert.rejects(resolveDownloadUrl(source, hostile), /untrusted Microsoft download URL/);
 });

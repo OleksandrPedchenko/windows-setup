@@ -33,6 +33,19 @@ export async function microsoftDownloadUrl(source: MicrosoftSource, fetcher: typ
   if (!edition) throw new Error(`Microsoft edition selection changed: ${page}`);
   const editionId = edition;
   const session = randomUUID();
+  // The official page registers its session with Microsoft's download protection services.
+  const instance = '560dc9f3-1aa5-4a2f-b63c-9e18f8d0e175';
+  async function register(url: string): Promise<string> {
+    const response = await fetchHttps(url, fetcher, { headers: browserHeaders });
+    if (!response.ok) throw new Error(`Microsoft session registration HTTP ${response.status}; use ${page} to download manually`);
+    return response.text();
+  }
+  await register(`https://vlscppe.microsoft.com/tags?${new URLSearchParams({ org_id: 'y6jn8c31', session_id: session })}`);
+  const mdt = await register(`https://ov-df.microsoft.com/mdt.js?${new URLSearchParams({ instanceId: instance, PageId: 'si', session_id: session })}`);
+  const witness = /[?&]w=([A-F\d]+)/.exec(mdt)?.[1];
+  const rticks = /rticks="\+(\d+)/.exec(mdt)?.[1];
+  if (!witness || !rticks) throw new Error(`Microsoft session registration changed; use ${page} to download manually`);
+  await register(`https://ov-df.microsoft.com/?${new URLSearchParams({ session_id: session, CustomerId: instance, PageId: 'si', w: witness, mdt: String(Date.now()), rticks })}`);
   const headers = { ...browserHeaders, Referer: page, Accept: 'application/json, text/javascript, */*; q=0.01', 'X-Requested-With': 'XMLHttpRequest', ...(cookies && { Cookie: cookies }) };
   const api = 'https://www.microsoft.com/software-download-connector/api/';
   async function call(action: string, sku: string): Promise<Record<string, unknown>> {
@@ -49,7 +62,7 @@ export async function microsoftDownloadUrl(source: MicrosoftSource, fetcher: typ
   const links = await call('GetProductDownloadLinksBySku', sku);
   if (Array.isArray(links.Errors) && links.Errors.length) throw new Error(`Microsoft blocked automatic link generation; use ${page} to download manually`);
   const options = links.ProductDownloadOptions;
-  const link = Array.isArray(options) ? options.find(item => item?.DownloadType === '64-bit')?.Uri : undefined;
+  const link = Array.isArray(options) ? options.find(item => item?.DownloadType === 1)?.Uri : undefined;
   if (typeof link !== 'string') throw new Error(`Microsoft x64 link is unavailable; use ${page} to download manually`);
   const url = new URL(link);
   if (url.protocol !== 'https:' || url.username || url.password || !/^(?:[a-z\d-]+\.)*microsoft\.com$/i.test(url.hostname) || !/\.iso$/i.test(url.pathname)) {
