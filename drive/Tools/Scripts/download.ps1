@@ -2,7 +2,7 @@ param(
     [string]$Destination = (Join-Path $(if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }) 'downloads'),
     [ValidateSet('x86', 'x64', 'arm', 'arm64')]
     [string]$Architecture = 'x64',
-    [string]$ConfigPath = $(if ($PSScriptRoot) { Join-Path $PSScriptRoot 'packages.json' } else { 'https://raw.githubusercontent.com/OleksandrPedchenko/windows-setup/main/packages.json' }),
+    [string]$ConfigPath = $(if ($PSScriptRoot) { Join-Path $PSScriptRoot 'packages.json' } else { 'https://raw.githubusercontent.com/OleksandrPedchenko/windows-setup/main/drive/Tools/Scripts/packages.json' }),
     [string]$EncryptedConfigPath,
     [switch]$EncryptConfig,
     [switch]$CheckOnly
@@ -119,7 +119,7 @@ try {
             $candidate = Join-Path $PSScriptRoot 'packages.encrypted.json'
             if (Test-Path -LiteralPath $candidate) { $EncryptedConfigPath = $candidate }
         } else {
-            $EncryptedConfigPath = 'https://raw.githubusercontent.com/OleksandrPedchenko/windows-setup/main/packages.encrypted.json'
+            $EncryptedConfigPath = 'https://raw.githubusercontent.com/OleksandrPedchenko/windows-setup/main/drive/Tools/Scripts/packages.encrypted.json'
         }
     }
     if ($EncryptedConfigPath) {

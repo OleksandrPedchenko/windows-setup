@@ -49,14 +49,14 @@ function Invoke-RestMethod {
 }
 
 try {
-    & (Join-Path $root 'download.ps1') -EncryptConfig -ConfigPath $plainPath -EncryptedConfigPath $encryptedPath
+    & (Join-Path $root 'drive/Tools/Scripts/download.ps1') -EncryptConfig -ConfigPath $plainPath -EncryptedConfigPath $encryptedPath
     if (-not (Test-Path -LiteralPath $encryptedPath)) { throw 'Encrypted config was not created.' }
     if ((Get-Content -LiteralPath $encryptedPath -Raw) -match 'private-example-id') { throw 'File ID appeared in ciphertext.' }
     $global:encryptedFixturePath = $encryptedPath
 
     $global:wrongPassword = $true
     try {
-        & (Join-Path $root 'download.ps1') -ConfigPath $publicPath -EncryptedConfigPath $encryptedPath -Destination (Join-Path $work 'wrong-output')
+        & (Join-Path $root 'drive/Tools/Scripts/download.ps1') -ConfigPath $publicPath -EncryptedConfigPath $encryptedPath -Destination (Join-Path $work 'wrong-output')
         throw 'Wrong password was accepted.'
     } catch {
         if ($_.Exception.Message -notlike '*Incorrect passphrase or modified encrypted configuration*') { throw }
@@ -68,7 +68,7 @@ try {
     $tampered.data = 'x' + $tampered.data.Substring(1)
     $tampered | ConvertTo-Json -Compress | Set-Content -LiteralPath $tamperedPath
     try {
-        & (Join-Path $root 'download.ps1') -ConfigPath $publicPath -EncryptedConfigPath $tamperedPath -Destination (Join-Path $work 'tampered-output')
+        & (Join-Path $root 'drive/Tools/Scripts/download.ps1') -ConfigPath $publicPath -EncryptedConfigPath $tamperedPath -Destination (Join-Path $work 'tampered-output')
         throw 'Modified ciphertext was accepted.'
     } catch {
         if ($_.Exception.Message -notlike '*Incorrect passphrase or modified encrypted configuration*') { throw }
@@ -76,14 +76,14 @@ try {
 
     $global:selectedNumbers = '2'
     $global:promptOrder = @()
-    $localPreview = & (Join-Path $root 'download.ps1') -ConfigPath $publicPath -EncryptedConfigPath $encryptedPath -CheckOnly 6>&1 | Out-String
+    $localPreview = & (Join-Path $root 'drive/Tools/Scripts/download.ps1') -ConfigPath $publicPath -EncryptedConfigPath $encryptedPath -CheckOnly 6>&1 | Out-String
     if (($global:promptOrder -join ',') -ne 'passphrase,selection') { throw 'Package selection did not follow the passphrase prompt.' }
     if ($localPreview -notmatch 'Checked Example ISO' -or $localPreview -match 'Checked Public app') { throw 'Private package selection did not filter the preview.' }
     $global:selectedNumbers = ''
-    $remotePreview = & (Join-Path $root 'download.ps1') -ConfigPath $publicPath -EncryptedConfigPath 'https://example.test/packages.encrypted.json' -CheckOnly 6>&1 | Out-String
+    $remotePreview = & (Join-Path $root 'drive/Tools/Scripts/download.ps1') -ConfigPath $publicPath -EncryptedConfigPath 'https://example.test/packages.encrypted.json' -CheckOnly 6>&1 | Out-String
     if ($remotePreview -notmatch 'Example ISO') { throw 'Remote encrypted config was not used.' }
 
-    Copy-Item -LiteralPath (Join-Path $root 'download.ps1') -Destination (Join-Path $work 'download.ps1')
+    Copy-Item -LiteralPath (Join-Path $root 'drive/Tools/Scripts/download.ps1') -Destination (Join-Path $work 'download.ps1')
     Copy-Item -LiteralPath $publicPath -Destination (Join-Path $work 'packages.json')
     Copy-Item -LiteralPath $encryptedPath -Destination (Join-Path $work 'packages.encrypted.json')
     $autoPreview = & (Join-Path $work 'download.ps1') -CheckOnly 6>&1 | Out-String
