@@ -33,6 +33,26 @@ test('update check is read-only by default', async () => {
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test('human update reports show changed checksum and size', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'toolkit-cli-'));
+  const destination = 'ISO/Example.iso';
+  try {
+    await mkdir(join(root, 'drive', 'ISO'), { recursive: true });
+    await writeFile(join(root, 'drive', `${destination}.json`), JSON.stringify({ name: 'Example', source: { provider: 'direct', url: 'https://example.org/Example.iso', version: '1', sha256: 'b'.repeat(64), sizeBytes: 20 } }));
+    await writeLock(join(root, 'toolkit.lock.json'), { [destination]: { filename: 'Example.iso', version: '1', sha256: 'a'.repeat(64), sizeBytes: 10 } });
+    for (const args of [['check-updates'], ['check-updates', '--report', 'markdown']]) {
+      const lines: string[] = [];
+      assert.equal(await main(args, { root, output: line => lines.push(line) }), 0);
+      const report = lines.join('\n');
+      assert.match(report, /refreshed-image/);
+      assert.match(report, /a{64}/);
+      assert.match(report, /b{64}/);
+      assert.match(report, /10/);
+      assert.match(report, /20/);
+    }
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test('locked direct artifact downloads to cache without writing into drive', async () => {
   const root = await mkdtemp(join(tmpdir(), 'toolkit-cli-'));
   const cache = await mkdtemp(join(tmpdir(), 'toolkit-cache-'));

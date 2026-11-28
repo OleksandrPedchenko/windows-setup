@@ -1,4 +1,4 @@
-import { readFile, readdir } from 'node:fs/promises';
+import { lstat, readFile, readdir } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
 
 export type Source =
@@ -111,6 +111,9 @@ export function parseDescriptor(value: unknown): Descriptor {
 }
 
 export async function discover(driveRoot: string): Promise<Artifact[]> {
+  const root = await lstat(driveRoot);
+  if (root.isSymbolicLink()) throw new Error(`symlink is not allowed for drive root: ${driveRoot}`);
+  if (!root.isDirectory()) throw new Error(`drive root is not a directory: ${driveRoot}`);
   const found: Artifact[] = [];
   const destinations = new Set<string>();
   async function walk(directory: string): Promise<void> {

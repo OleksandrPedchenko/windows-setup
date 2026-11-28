@@ -18,12 +18,33 @@ function safeFilename(name: string): string {
 }
 
 function httpsUrl(value: unknown): string {
-  if (typeof value !== 'string' || new URL(value).protocol !== 'https:') throw new Error('provider returned a non-HTTPS URL');
+  if (typeof value !== 'string') throw new Error('provider returned a non-HTTPS URL');
+  const url = new URL(value);
+  if (url.protocol !== 'https:' || url.username || url.password) throw new Error('provider returned a non-HTTPS URL');
   return value;
 }
 
+export async function fetchHttps(url: string, fetcher: typeof fetch = fetch, init: RequestInit = {}): Promise<Response> {
+  let current = httpsUrl(url);
+  for (let redirects = 0; redirects <= 5; redirects++) {
+    const response = await fetcher(current, { ...init, redirect: 'manual' });
+    if ([301, 302, 303, 307, 308].includes(response.status)) {
+      const location = response.headers.get('location');
+      if (!location) throw new Error('upstream redirect has no location');
+      const next = new URL(location, current).href;
+      if (new URL(next).protocol !== 'https:') throw new Error('non-HTTPS redirect refused');
+      current = httpsUrl(next);
+      await response.body?.cancel();
+      continue;
+    }
+    if (response.url && new URL(response.url).protocol !== 'https:') throw new Error('non-HTTPS redirect refused');
+    return response;
+  }
+  throw new Error('too many upstream redirects');
+}
+
 async function request(url: string, fetcher: typeof fetch): Promise<Response> {
-  const response = await fetcher(url, { headers: { 'User-Agent': 'ventoy-toolkit', Accept: 'application/vnd.github+json' } });
+  const response = await fetchHttps(url, fetcher, { headers: { 'User-Agent': 'ventoy-toolkit', Accept: 'application/vnd.github+json' } });
   if (!response.ok) throw new Error(`upstream HTTP ${response.status}: ${new URL(url).host}`);
   return response;
 }

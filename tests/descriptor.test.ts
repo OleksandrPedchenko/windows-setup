@@ -37,3 +37,12 @@ test('rejects invalid descriptors and symlinks before using their contents', asy
     }
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+test('rejects a symlinked drive root', { skip: process.platform === 'win32' }, async () => {
+  const parent = await mkdtemp(join(tmpdir(), 'toolkit-root-'));
+  try {
+    await mkdir(join(parent, 'outside'));
+    await symlink(join(parent, 'outside'), join(parent, 'drive'));
+    await assert.rejects(discover(join(parent, 'drive')), /symlink/);
+  } finally { await rm(parent, { recursive: true, force: true }); }
+});

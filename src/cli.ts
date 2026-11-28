@@ -25,6 +25,15 @@ function lockEntry(value: ResolvedArtifact): LockEntry {
   return { filename: value.filename, ...(value.version && { version: value.version }), ...(value.sha256 && { sha256: value.sha256 }), ...(value.sizeBytes && { sizeBytes: value.sizeBytes }) };
 }
 
+function describe(entry?: LockEntry): string {
+  if (!entry) return '-';
+  return [`version=${entry.version || '?'}`, `file=${entry.filename}`, `sha256=${entry.sha256 || '?'}`, `size=${entry.sizeBytes === undefined ? '?' : `${entry.sizeBytes} bytes`}`].join(', ');
+}
+
+function cell(value: string): string {
+  return value.replaceAll('|', '\\|').replaceAll('\n', ' ');
+}
+
 export async function main(args: string[], options: Options = {}): Promise<number> {
   const root = options.root || repositoryRoot;
   const output = options.output || console.log;
@@ -64,9 +73,9 @@ export async function main(args: string[], options: Options = {}): Promise<numbe
     if (write) await writeLock(lockPath, next);
     if (report === 'json') output(JSON.stringify(results, null, 2));
     else if (report === 'markdown') {
-      output('| Destination | Status | Previous | Current |\n|---|---|---|---|');
-      for (const result of results) output(`| ${result.destination} | ${result.status} | ${result.previous?.version || '-'} | ${result.current?.version || '-'} |`);
-    } else for (const result of results) output(`${result.status}\t${result.destination}${result.error ? `: ${result.error}` : ''}`);
+      output('| Destination | Status | Previous | Current | Error |\n|---|---|---|---|---|');
+      for (const result of results) output(`| ${cell(result.destination)} | ${result.status} | ${cell(describe(result.previous))} | ${cell(describe(result.current))} | ${cell(result.error || '-')} |`);
+    } else for (const result of results) output(`${result.status}\t${result.destination}\told: ${describe(result.previous)}\tnew: ${describe(result.current)}${result.error ? `\terror: ${result.error}` : ''}`);
     return results.some(result => result.status === 'source-unavailable') ? 1 : 0;
   }
   let destination: string | undefined;

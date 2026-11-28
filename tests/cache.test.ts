@@ -27,3 +27,17 @@ test('verified download is reused; failed replacement keeps the old artifact', a
     await assert.rejects(downloadToCache('ISO/empty.iso', { filename: 'empty.iso', downloadUrl: 'https://example.org/empty.iso' }, root, async () => new Response('')), /empty download/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+test('unverified cache identity includes source URL and rejects HTTP redirects', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'toolkit-cache-'));
+  let calls = 0;
+  const fetcher: typeof fetch = async () => new Response(calls++ === 0 ? 'first' : 'other');
+  try {
+    const first = await downloadToCache('ISO/example.iso', { filename: 'example.iso', version: '1', sizeBytes: 5, downloadUrl: 'https://example.org/first' }, root, fetcher);
+    assert.doesNotMatch(await readFile(join(root, 'index.json'), 'utf8'), /https:/);
+    const second = await downloadToCache('ISO/example.iso', { filename: 'example.iso', version: '1', sizeBytes: 5, downloadUrl: 'https://example.org/other' }, root, fetcher);
+    assert.equal(calls, 2);
+    assert.notEqual(first.sha256, second.sha256);
+    await assert.rejects(downloadToCache('ISO/redirect.iso', { filename: 'redirect.iso', downloadUrl: 'https://example.org/redirect' }, root, async () => new Response(null, { status: 302, headers: { location: 'http://insecure.example/redirect.iso' } })), /non-HTTPS redirect/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});

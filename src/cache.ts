@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import type { ReadableStream } from 'node:stream/web';
-import type { ResolvedArtifact } from './providers.js';
+import { fetchHttps, type ResolvedArtifact } from './providers.js';
 
 export interface CachedArtifact {
   path: string;
@@ -39,7 +39,8 @@ export async function downloadToCache(destination: string, artifact: ResolvedArt
   const indexPath = join(cacheRoot, 'index.json');
   await mkdir(artifacts, { recursive: true });
   await mkdir(temporary, { recursive: true });
-  const key = JSON.stringify([destination, artifact.filename, artifact.version, artifact.sizeBytes]);
+  const sourceId = createHash('sha256').update(artifact.downloadUrl).digest('hex');
+  const key = JSON.stringify([destination, artifact.filename, artifact.version, artifact.sizeBytes, sourceId]);
   const index = artifact.sha256 ? {} : await readIndex(indexPath);
   const candidate = artifact.sha256 || index[key];
   if (candidate && /^[a-f\d]{64}$/i.test(candidate)) {
@@ -48,9 +49,8 @@ export async function downloadToCache(destination: string, artifact: ResolvedArt
       if ((!artifact.sizeBytes || (await stat(path)).size === artifact.sizeBytes) && await fileHash(path) === candidate.toLowerCase()) return { path, sha256: candidate.toLowerCase(), verifiedAgainstUpstream: !!artifact.sha256, reused: true };
     } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
   }
-  const response = await fetcher(artifact.downloadUrl);
+  const response = await fetchHttps(artifact.downloadUrl, fetcher);
   if (!response.ok || !response.body) throw new Error(`download HTTP ${response.status}`);
-  if (response.url && new URL(response.url).protocol !== 'https:') throw new Error('download redirected to a non-HTTPS URL');
   const partial = join(temporary, `${randomUUID()}.part`);
   const hash = createHash('sha256');
   let size = 0;

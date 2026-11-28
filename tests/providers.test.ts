@@ -32,3 +32,25 @@ test('direct source resolves declared checksum without a metadata request', asyn
     filename: 'tool.iso', version: '1', sha256: 'c'.repeat(64), downloadUrl: 'https://example.org/releases/tool.iso',
   });
 });
+
+test('metadata resolution rejects an HTTPS to HTTP redirect', async () => {
+  const source = descriptor({ provider: 'github-release', repository: 'example/tool', release: 'latest', assetPattern: '\\.iso$' });
+  let calls = 0;
+  await assert.rejects(resolveMetadata(source, async () => {
+    calls++;
+    return new Response(null, { status: 302, headers: { location: 'http://insecure.example/release' } });
+  }), /non-HTTPS redirect/);
+  assert.equal(calls, 1);
+});
+
+test('metadata resolution follows an HTTPS redirect', async () => {
+  const source = descriptor({ provider: 'github-release', repository: 'example/tool', release: 'latest', assetPattern: '^tool\\.iso$' });
+  const urls: string[] = [];
+  const result = await resolveMetadata(source, async input => {
+    urls.push(String(input));
+    if (urls.length === 1) return new Response(null, { status: 302, headers: { location: 'https://api.github.com/repos/example/tool/releases/tags/v1' } });
+    return new Response(JSON.stringify({ tag_name: 'v1', assets: [{ name: 'tool.iso', browser_download_url: 'https://example.org/tool.iso', digest: `sha256:${'a'.repeat(64)}`, size: 10 }] }));
+  });
+  assert.equal(urls.length, 2);
+  assert.equal(result.version, 'v1');
+});
